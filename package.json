@@ -1,0 +1,34 @@
+{
+  "name": "savitar",
+  "version": "1.0.0",
+  "description": "A super useful tool to grab finalization proofs & get latest state as fast as possible",
+  "main": "index.js",
+  "type":"module",
+  "bin": {
+    "savitar": "index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KLYN74R/Savitar.git"
+  },
+  "keywords": [],
+  "author": "KlyntarTeam",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/KLYN74R/Savitar/issues"
+  },
+  "homepage": "https://github.com/KLYN74R/Savitar#readme",
+
+  "dependencies": {
+
+    "base-58": "^0.0.1",
+    "bigi": "^1.4.2",
+    "blake3-wasm": "^2.1.5",
+    "@noble/bls12-381": "^1.2.0",
+    "bls-wasm": "^0.4.8",
+    "level": "^7.0.0",
+    "node-fetch": "^3.2.2"
+
+  }
+  
+}
