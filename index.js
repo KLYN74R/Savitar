@@ -12,11 +12,11 @@
  * 
  */
 
+// import UWS from 'uWebSockets.js'
 import {hash} from 'blake3-wasm'
 import fetch from 'node-fetch'
 import bls from './bls.js'
 import fs from 'fs'
-
 
 
 console.log(fs.readFileSync('./art.txt').toString(),'\n\n')
@@ -29,21 +29,21 @@ const TESTNET_NODES=[
     {
         url:'http://localhost:6666',
         pubKey:"7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta",
-        startFrom:724
+        startFrom:1700
     
     },
     {
         url:'http://localhost:6665',
         pubKey:"75XPnpDxrAtyjcwXaATfDhkYTGBoHuonDU1tfqFc6JcNPf5sgtcsvBRXaXZGuJ8USG",
-        startFrom:571
+        startFrom:1400
     
     },
-    {
-        url:'http://localhost:6664',
-        pubKey:"61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8",
-        startFrom:578
+    // {
+    //     url:'http://localhost:6664',
+    //     pubKey:"61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8",
+    //     startFrom:1700
     
-    }
+    // }
 
 ]
 
@@ -86,11 +86,11 @@ let GET_SUPER_FINALIZATION_PROOFS=async()=>{
 
             if(sfp){
 
-                console.log(`Received SFP for block ${blockID} => ${sfp}`)
+                console.log(`Received SFP for block ${blockID} => ${JSON.stringify(sfp)}`)
 
                 node.startFrom++
 
-            }
+            }else node.startFrom-- //step back
 
         }).catch(_=>{
 
@@ -103,7 +103,6 @@ let GET_SUPER_FINALIZATION_PROOFS=async()=>{
     // An endless process
     setTimeout(GET_SUPER_FINALIZATION_PROOFS,0)
 
-
     if(Object.values(NO_MORE_BLOCKS).every(Boolean)){
 
         process.exit(1)
@@ -115,6 +114,12 @@ let GET_SUPER_FINALIZATION_PROOFS=async()=>{
 
 GET_SUPER_FINALIZATION_PROOFS()
 
+
+setInterval(()=>{
+
+    console.log(`\n\u001b[38;5;50m[STATS]\x1b[0m NO_MORE_BLOCKS = ${Object.values(NO_MORE_BLOCKS)}\n`)
+
+},2000)
 
 // let RUN_FINALIZATION_PROOFS_GRABBING = async (qtPayload,blockID) => {
 
