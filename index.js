@@ -24,26 +24,29 @@ console.log(fs.readFileSync('./art.txt').toString(),'\n\n')
 
 const CONFIGS = JSON.parse(fs.readFileSync('./configs.json'))
 
-const TESTNET_NODES=[
+let TESTNET_NODES=[
 
     {
         url:'http://localhost:6666',
         pubKey:"7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta",
-        startFrom:1700
+        startFrom:0,
+        query:-1
     
     },
     {
         url:'http://localhost:6665',
         pubKey:"75XPnpDxrAtyjcwXaATfDhkYTGBoHuonDU1tfqFc6JcNPf5sgtcsvBRXaXZGuJ8USG",
-        startFrom:1400
+        startFrom:0,
+        query:-1
     
     },
-    // {
-    //     url:'http://localhost:6664',
-    //     pubKey:"61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8",
-    //     startFrom:1700
+    {
+        url:'http://localhost:6664',
+        pubKey:"61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8",
+        startFrom:0,
+        query:-1
     
-    // }
+    }
 
 ]
 
@@ -52,6 +55,9 @@ const BLAKE3 = v => hash(v).toString('hex')
 const GEN_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.events) + CONFIGS.SYMBIOTE_ID + block.index + block.prevHash)
 
 const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
+
+const STEP = 50 // num of blocks
+
 
 
 
@@ -62,64 +68,68 @@ let NO_MORE_BLOCKS={
     "61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8":false
 }
 
-let GET_SUPER_FINALIZATION_PROOFS=async()=>{
+let GET_SUPER_FINALIZATION_PROOFS=async node=>{
 
-    for(let node of TESTNET_NODES){
+    let blockID = node.pubKey+':'+node.startFrom
 
-        // Not to request twice
-        if(node.current===node.startFrom) {
+    await fetch(`${node.url}/block/${blockID}`).then(r=>r.json()).then(async block=>{
 
-            continue
+        let blockHash = GEN_HASH(block)
 
-        }else node.current=node.startFrom
+        // Based on blockID and hash - get the SUPER_FINALIZATION_PROOFS
 
+        let sfp = await fetch(`${node.url}/get_super_finalization/${blockID+blockHash}`).then(r=>r.json()).catch(_=>false)
 
-        let blockID = node.pubKey+':'+node.startFrom
+        if(sfp){
 
-        fetch(`${node.url}/block/${blockID}`).then(r=>r.json()).then(async block=>{
+            console.log(`Received SFP for block ${blockID} => ${JSON.stringify(sfp)}`)
 
-            let blockHash = GEN_HASH(block)
+            node.startFrom++
 
-            // Based on blockID and hash - get the SUPER_FINALIZATION_PROOFS
+        }
 
-            let sfp = await fetch(`${node.url}/get_super_finalization/${blockID+blockHash}`).then(r=>r.json()).catch(_=>false)
-
-            if(sfp){
-
-                console.log(`Received SFP for block ${blockID} => ${JSON.stringify(sfp)}`)
-
-                node.startFrom++
-
-            }else node.startFrom-- //step back
-
-        }).catch(_=>{
-
-            NO_MORE_BLOCKS[node.pubKey]=true
-
-        })
-
-    }
+    }).catch(_=>{})
+    
 
     // An endless process
-    setTimeout(GET_SUPER_FINALIZATION_PROOFS,0)
+    setTimeout(()=>GET_SUPER_FINALIZATION_PROOFS(node),0)
 
-    if(Object.values(NO_MORE_BLOCKS).every(Boolean)){
-
-        process.exit(1)
-
-    }
 
 }
 
 
-GET_SUPER_FINALIZATION_PROOFS()
+
+GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[0])
+GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[1])
+GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[2])
 
 
-setInterval(()=>{
 
-    console.log(`\n\u001b[38;5;50m[STATS]\x1b[0m NO_MORE_BLOCKS = ${Object.values(NO_MORE_BLOCKS)}\n`)
 
-},2000)
+// setInterval(()=>{
+
+//     console.log(`\n\u001b[38;5;50m[STATS]\x1b[0m NO_MORE_BLOCKS = ${Object.values(NO_MORE_BLOCKS)}\n`)
+
+// },2000)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // let RUN_FINALIZATION_PROOFS_GRABBING = async (qtPayload,blockID) => {
 
