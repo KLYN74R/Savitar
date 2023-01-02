@@ -26,6 +26,6 @@
     "bls-wasm": "^0.4.8",
     "level": "^7.0.0",
     "node-fetch": "^3.2.2",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.15.0"
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.3.0"
   }
 }

@@ -8,7 +8,7 @@ specifiers:
   bls-wasm: ^0.4.8
   level: ^7.0.0
   node-fetch: ^3.2.2
-  uWebSockets.js: github:uNetworking/uWebSockets.js#v20.15.0
+  uWebSockets.js: github:uNetworking/uWebSockets.js#v20.3.0
 
 dependencies:
   '@noble/bls12-381': 1.4.0
@@ -18,7 +18,7 @@ dependencies:
   bls-wasm: 0.4.8
   level: 7.0.1
   node-fetch: 3.3.0
-  uWebSockets.js: github.com/uNetworking/uWebSockets.js/77bc1fd5577ae42b56675912eb8481a31f3fefd2
+  uWebSockets.js: github.com/uNetworking/uWebSockets.js/e5d6241a7bbfb0d9258780dbf6175ae34d6f18e9
 
 packages:
 
@@ -267,8 +267,8 @@ packages:
     engines: {node: '>= 8'}
     dev: false
 
-  github.com/uNetworking/uWebSockets.js/77bc1fd5577ae42b56675912eb8481a31f3fefd2:
-    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/77bc1fd5577ae42b56675912eb8481a31f3fefd2}
+  github.com/uNetworking/uWebSockets.js/e5d6241a7bbfb0d9258780dbf6175ae34d6f18e9:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/e5d6241a7bbfb0d9258780dbf6175ae34d6f18e9}
     name: uWebSockets.js
-    version: 20.15.0
+    version: 20.3.0
     dev: false

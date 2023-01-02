@@ -1,3 +1,12 @@
 {
-    "SYMBIOTE_ID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "SYMBIOTE_ID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "PASSIVE":false,
+    "PROACTIVE_SETTING":{},
+    
+    "NODE":"http://localhost:6666",
+
+    "SERVER_CONFIGS":{
+        "INTERFACE":"::",
+        "PORT":9393
+    }
 }
