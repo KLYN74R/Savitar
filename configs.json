@@ -8,5 +8,9 @@
     "SERVER_CONFIGS":{
         "INTERFACE":"::",
         "PORT":9393
-    }
+    },
+
+    "STUFF_DEALER":"http://localhost:7331",
+    "CHECKPOINT_TRACKER_TIMEOUT":5000
+
 }

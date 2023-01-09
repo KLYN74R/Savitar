@@ -26,6 +26,76 @@ Hence we start working from COMPLETED checkpoint X where SUBCHAINS_METADATA is
 */
 
 
+//__________________________________________ TABLE OF IMPORTS __________________________________________
+
+
+import fetch from 'node-fetch'
+import bls from './bls.js'
+
+
+// Mutable var
+let CURRENT_CHECKPOINT = {TIMESTAMP:0}
+
+
+//___________________________________________ CONSTANTS POOL ___________________________________________
+
+const COLORS = {
+    C:'\x1b[0m',
+    T:`\u001b[38;5;23m`, // for time view
+    F:'\x1b[31;1m', // red(error,no collapse,problems with sequence,etc.)
+    S:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
+    W:'\u001b[38;5;3m', // yellow(non critical warnings)
+    I:'\x1b[36;1m', // cyan(default messages useful to grasp the events)
+    CB:'\u001b[38;5;200m',// ControllerBlock
+    CD:`\u001b[38;5;50m`,//Canary died
+    GTS:`\u001b[38;5;m`,//Generation Thread Stop
+    CON:`\u001b[38;5;168m`//CONFIGS
+}
+
+const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
+
+const CHECK_IF_THE_SAME_DAY=(timestamp1,timestamp2)=>{
+
+    let date1 = new Date(timestamp1),
+        
+        date2 = new Date(timestamp2)
+    
+    return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate()
+
+}
+
+const GET_GMT_TIMESTAMP=()=>{
+
+    var currentTime = new Date();
+    
+    //The offset is in minutes -- convert it to ms
+    //See https://stackoverflow.com/questions/9756120/how-do-i-get-a-utc-timestamp-in-javascript
+    return currentTime.getTime() + currentTime.getTimezoneOffset() * 60000;
+}
+
+
+// We'll need this function to find URLs of new pools and so on
+const GET_STUFF_BY_ID = async id => {
+
+
+
+}
+
+
+
+
+//___________________________________________ EXTERNAL FUNCTIONALITY ___________________________________________
+
+
+
+
+export const LOG=(msg,msgColor)=>{
+
+    console.log(COLORS.T,`[${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}]\u001b[38;5;99m(pid:${process.pid})`,COLORS[msgColor],msg,COLORS.C)
+
+}
+
+
 
 let RUN_FINALIZATION_PROOFS_GRABBING = async (qtPayload,blockID) => {
 
@@ -283,21 +353,22 @@ let RUN_COMMITMENTS_GRABBING = async (qtPayload,blockID) => {
 
 
 
+/*
 
-let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async () => {
+Run a single async thread for each of subchain where we should__________________________
+
+0) Get the next block and verify it
+1) Start to grab the commitments for this block
+2) Once we get 2/3N+1 of commitments - aggregate it and start to grab the finalization proofs
+3) Once we get 2/3N+1 of finalization proofs - aggregate to get the SUPER_FINALIZATION_PROOFS and share among validators & endpoints in configs
 
 
+*/
+let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
-    // If we don't generate the blocks - skip this function
-    if(!SYMBIOTE_META.QUORUM_THREAD.CHECKPOINT.PAYLOAD.SUBCHAINS_METADATA[CONFIG.SYMBIOTE.PUB]){
 
-        setTimeout(SEND_BLOCKS_AND_GRAB_COMMITMENTS,3000)
+    // Descriptor has the following structure - {checkpointID,height} for appropriate subchain
 
-        return
-
-    }
-
-    // Descriptor has the following structure - {checkpointID,height}
     let appropriateDescriptor = SYMBIOTE_META.STATIC_STUFF_CACHE.get('BLOCK_SENDER_HANDLER')
 
     let qtPayload = SYMBIOTE_META.QUORUM_THREAD.CHECKPOINT.HEADER.PAYLOAD_HASH + SYMBIOTE_META.QUORUM_THREAD.CHECKPOINT.HEADER.ID
@@ -353,3 +424,35 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async () => {
 
 
 
+
+export const CHECKPOINT_TRACKER = async () => {
+
+    let isTheSameDay = CHECK_IF_THE_SAME_DAY(CURRENT_CHECKPOINT.TIMESTAMP,GET_GMT_TIMESTAMP())
+
+    if(!isTheSameDay){
+
+        let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/get_quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
+
+        if(latestCheckpointOrError.COMPLETED){
+
+            CURRENT_CHECKPOINT = latestCheckpointOrError
+
+            LOG(`\u001b[38;5;154mLatest checkpoint found => \u001b[38;5;93m${latestCheckpointOrError.HEADER.ID} ### ${latestCheckpointOrError.HEADER.PAYLOAD_HASH}\u001b[0m`,'S')
+
+            SEND_BLOCKS_AND_GRAB_COMMITMENTS()
+
+        }else {
+
+            LOG(`Can't get the latest checkpoint => \u001b[0m${latestCheckpointOrError}`,'CD')
+
+            LOG(`Going to wait for a few and repeat`,'I')
+
+        }
+
+    }
+
+    // Repeat each N seconds
+    setTimeout(CHECKPOINT_TRACKER,CONFIGS.CHECKPOINT_TRACKER_TIMEOUT)
+
+
+}

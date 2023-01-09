@@ -15,25 +15,23 @@
 
 //__________________________________________ TABLE OF IMPORTS __________________________________________
 
+
+import {CHECKPOINT_TRACKER,LOG} from './background.js'
 import UWS from 'uWebSockets.js'
 import {hash} from 'blake3-wasm'
 import fetch from 'node-fetch'
-import bls from './bls.js'
 import level from 'level'
 import fs from 'fs'
+
 
 //___________________________________________ CONSTANTS POOL ___________________________________________
 
 
 // Here will be saved all the progress(proofs,heights,state etc.)
 
-const STORAGE = level('STORAGE')
+global.STORAGE = level('STORAGE')
 
-const CONFIGS = JSON.parse(fs.readFileSync('./configs.json'))
-
-// It's mutable var
-let CURRENT_CHECKPOINT = {}
-
+global.CONFIGS = JSON.parse(fs.readFileSync('./configs.json'))
 
 
 
@@ -42,46 +40,6 @@ let CURRENT_CHECKPOINT = {}
 const BLAKE3 = v => hash(v).toString('hex')
 
 const GEN_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.events) + CONFIGS.SYMBIOTE_ID + block.index + block.prevHash)
-
-const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
-
-const CHECK_IF_THE_SAME_DAY=(timestamp1,timestamp2)=>{
-
-    let date1 = new Date(timestamp1),
-        
-        date2 = new Date(timestamp2)
-    
-    return date1.getFullYear() === date2.getFullYear() && date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate()
-
-}
-
-const GET_GMT_TIMESTAMP=()=>{
-
-    var currentTime = new Date();
-    
-    //The offset is in minutes -- convert it to ms
-    //See https://stackoverflow.com/questions/9756120/how-do-i-get-a-utc-timestamp-in-javascript
-    return currentTime.getTime() + currentTime.getTimezoneOffset() * 60000;
-}
-
-const COLORS = {
-    C:'\x1b[0m',
-    T:`\u001b[38;5;23m`, // for time view
-    F:'\x1b[31;1m', // red(error,no collapse,problems with sequence,etc.)
-    S:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
-    W:'\u001b[38;5;3m', // yellow(non critical warnings)
-    I:'\x1b[36;1m', // cyan(default messages useful to grasp the events)
-    CB:'\u001b[38;5;200m',// ControllerBlock
-    CD:`\u001b[38;5;50m`,//Canary died
-    GTS:`\u001b[38;5;m`,//Generation Thread Stop
-    CON:`\u001b[38;5;168m`//CONFIGS
-}
-
-const LOG=(msg,msgColor)=>{
-
-    console.log(COLORS.T,`[${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}]\u001b[38;5;99m(pid:${process.pid})`,COLORS[msgColor],msg,COLORS.C)
-
-}
 
 
 
@@ -105,24 +63,7 @@ let art = fs.readFileSync('./art.txt').toString()
 console.log(art,'\n\n')
 
 
-
-
 //_ GET THE LATEST CHECKPOINT AND START TO FIND SUPER_FINALIZATIONS_PROOFS BASED ON SUBCHAINS_METADATA _
-
-
-let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/get_quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
-
-
-if(latestCheckpointOrError.QUORUM){
-
-    LOG(`Latest checkpoint found => ${latestCheckpointOrError.HEADER.ID} ### ${latestCheckpointOrError.HEADER.PAYLOAD_HASH}`,'CD')
-
-    CURRENT_CHECKPOINT = latestCheckpointOrError
-
-    console.log(CURRENT_CHECKPOINT)
-
-}else LOG(`Can't get the latest checkpoint => \u001b[0m${latestCheckpointOrError}`,'CD')
-
 
 
 let TESTNET_NODES=[
@@ -183,10 +124,12 @@ let GET_SUPER_FINALIZATION_PROOFS=async node=>{
 
 
 
-GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[0])
-GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[1])
-GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[2])
+// GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[0])
+// GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[1])
+// GET_SUPER_FINALIZATION_PROOFS(TESTNET_NODES[2])
 
+
+CHECKPOINT_TRACKER()
 
 
 
