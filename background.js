@@ -656,7 +656,7 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
 
 
-let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
+export let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
 
 
     if(operationType === 'get'){

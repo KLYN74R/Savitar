@@ -16,10 +16,10 @@
 //__________________________________________ TABLE OF IMPORTS __________________________________________
 
 
-import {CHECKPOINT_TRACKER,LOG} from './background.js'
+import {CHECKPOINT_TRACKER,LOG, USE_TEMPORARY_DB} from './background.js'
 import UWS from 'uWebSockets.js'
 import fs from 'fs'
-import fetch from 'node-fetch'
+
 
 //___________________________________________ CONSTANTS POOL ___________________________________________
 
@@ -60,21 +60,27 @@ UWS.App()
 
 .get('/health',response=>response.end("Not on my shift"))
 
-.get('/super_finalization_proof/:blockID',(response,request)=>{
+.get('/super_finalization_proof/:blockID',async(response,request)=>{
 
-    // .writeHeader('Access-Control-Allow-Origin','*')
-    // .writeHeader('Cache-Control',`max-age=${CONFIG.SYMBIOTE.TTL.GET_QUORUM_THREAD_CHECKPOINT}`)
-    // .onAborted(()=>response.aborted=true)
+    response.onAborted(()=>response.aborted=true)
+    
+    let superFinalizationProof = await USE_TEMPORARY_DB('get',TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)?.DATABASE,'SFP:'+request.getParameter(0)).catch(_=>false)
+    
+    if(superFinalizationProof){
+    
+        response.end(JSON.stringify(superFinalizationProof))
+    
+    }else response.end(JSON.stringify({error:'No SFP'}))
 
 
 })
 
 // To check the status of some tx
-.get('/tx_status/:sighash',(response,request)=>{
+// .get('/tx_status/:sighash',(response,request)=>{
 
     
 
-})
+// })
 
 
 .listen(CONFIGS.SERVER_CONFIGS.INTERFACE,CONFIGS.SERVER_CONFIGS.PORT,_=>{
