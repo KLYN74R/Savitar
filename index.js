@@ -19,7 +19,7 @@
 import {CHECKPOINT_TRACKER,LOG} from './background.js'
 import UWS from 'uWebSockets.js'
 import fs from 'fs'
-
+import fetch from 'node-fetch'
 
 //___________________________________________ CONSTANTS POOL ___________________________________________
 
@@ -51,10 +51,7 @@ console.log(art,'\n\n')
 CHECKPOINT_TRACKER()
 
 
-
-
 //______________________________ API SECTION ______________________________
-
 
 
 

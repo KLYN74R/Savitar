@@ -178,7 +178,7 @@ const GET_QUORUM_URLS = currentCheckpointTempObject => {
 }
 
 
-const BROADCAST_TO_QUORUM = (currentCheckpointTempObject,route,data)=>{
+const BROADCAST_TO_QUORUM=(currentCheckpointTempObject,route,data)=>{
 
 
     let quorumMembers = GET_QUORUM_URLS(currentCheckpointTempObject)
@@ -600,6 +600,71 @@ let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
 
 
 
+let START_BLOCK_GRABBING_PROCESS=async subchain=>{
+
+    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+
+    if(!tempObject){
+
+        setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain),100)
+
+        return
+
+    }
+
+    let subchainMetadata = tempObject.SUBCHAINS_METADATA.get(subchain) // BLS pubkey of pool => {INDEX,HASH,SUPER_FINALIZATION_PROOF,URL}
+
+    let blockID
+
+    if(tempObject.CACHE.has('BLOCK_POINTER:'+subchain)){
+
+        blockID = subchain+':'+tempObject.CACHE.get('BLOCK_POINTER:'+subchain)
+
+    }else {
+
+        // Try to get pointer from storage
+
+        let pointer = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'BLOCK_POINTER:'+subchain).catch(_=>false)
+
+        if(pointer){
+
+            blockID = subchain+':'+pointer
+
+            tempObject.CACHE.set('BLOCK_POINTER:'+subchain,pointer)
+
+        }else{
+
+            blockID = subchain+':'+subchainMetadata.INDEX
+
+            tempObject.CACHE.set('BLOCK_POINTER:'+subchain,subchainMetadata.INDEX)
+
+        }
+        
+    }
+    
+
+    await fetch(`${subchainMetadata.URL}/block/${blockID}`).then(r=>r.json()).then(async block=>{
+
+        LOG(`Received block \u001b[38;5;50m${blockID}`,'S')
+
+        await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK:'+blockID,block).catch(_=>{})
+
+        
+        let nextIndex = tempObject.CACHE.get('BLOCK_POINTER:'+subchain)+1
+
+        tempObject.CACHE.set('BLOCK_POINTER:'+subchain,nextIndex)
+
+        await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK_POINTER:'+subchain,nextIndex).catch(_=>{})
+
+    }).catch(_=>{})
+
+    // An endless process
+    setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain),0)
+
+
+}
+
+
 let PREPARE_HANDLERS = async () => {
 
     let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
@@ -678,11 +743,16 @@ export const CHECKPOINT_TRACKER = async () => {
 
             if(currentTempObject){
 
+                tempObject.CACHE = currentTempObject.CACHE || new Map()//create new cache based on previous one
+
+                tempObject.CACHE.delete('VALIDATORS_URLS') //this value will be new
+        
                 await currentTempObject.DATABASE.close()
 
                 fs.rm(`.TEMP/${CURRENT_CHECKPOINT_ID}`,{recursive:true},()=>{})
 
             }
+
 
             //Change the pointer for next checkpoint
             CURRENT_CHECKPOINT_ID = nextCheckpointFullID
@@ -693,7 +763,13 @@ export const CHECKPOINT_TRACKER = async () => {
 
             // After that - we can start grab commitements and so on with current(latest) version of symbiote state
             
-            Object.keys(latestCheckpointOrError.PAYLOAD.SUBCHAINS_METADATA).forEach(subchain=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain))
+            Object.keys(latestCheckpointOrError.PAYLOAD.SUBCHAINS_METADATA).forEach(subchain=>{
+
+                SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain)
+
+                START_BLOCK_GRABBING_PROCESS(subchain)
+
+            })
 
         }else {
 
