@@ -217,6 +217,7 @@ export const LOG=(msg,msgColor)=>{
 
 let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex) => {
 
+
     let blockID = subchain+':'+nextBlockIndex
 
     let block = await USE_TEMPORARY_DB('get',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID)
@@ -263,19 +264,21 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
             // No sense to get the commitment if we already have
             if(finalizationProofsMapping.has(descriptor.pubKey)) continue
     
+            let promise = fetch(descriptor.url+'/finalization',optionsToSend).then(r=>r.text()).then(_=>
+                
+                fetch(descriptor.url+'/finalization',optionsToSend).then(r=>r.text()).then(async possibleFinalizationProof=>{
     
-            let promise = fetch(descriptor.url+'/finalization',optionsToSend).then(r=>r.text()).then(async possibleFinalizationProof=>{
-    
-                let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+currentCheckpointID,descriptor.pubKey,possibleFinalizationProof).catch(_=>false)
-    
-                if(finalProofIsOk) finalizationProofsMapping.set(descriptor.pubKey,possibleFinalizationProof)
-    
-            }).catch(_=>false)
-    
+                    let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+currentCheckpointID,descriptor.pubKey,possibleFinalizationProof).catch(_=>false)
+        
+                    if(finalProofIsOk) finalizationProofsMapping.set(descriptor.pubKey,possibleFinalizationProof)
+        
+                })
+                
+            ).catch(_=>false)
 
             // To make sharing async
             promises.push(promise)
-    
+
         }
     
         await Promise.all(promises)
@@ -335,8 +338,8 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
 
         }
 
-        //Share here
-        BROADCAST_TO_QUORUM(currentCheckpointTempObject,'/super_finalization',superFinalizationProof)
+        // //Share here
+        // BROADCAST_TO_QUORUM(currentCheckpointTempObject,'/super_finalization',superFinalizationProof)
 
 
         // Store locally
@@ -353,7 +356,9 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
 
         subchainMetadata.SUPER_FINALIZATION_PROOF = superFinalizationProof
 
-        
+
+        LOG(`Received SFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${blockHash})`,'S')
+
         // To keep progress
         await USE_TEMPORARY_DB('put',DATABASE,subchain,subchainMetadata).catch(_=>false)
 
@@ -421,11 +426,12 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
             2. Get the 2/3N+1 FINALIZATION_PROOFs, aggregate and call POST /super_finalization to share the SUPER_FINALIZATION_PROOFS over the symbiote
     
             */
+
     
             let promise = fetch(descriptor.url+'/block',optionsToSend).then(r=>r.text()).then(async possibleCommitment=>{
     
                 let commitmentIsOk = await bls.singleVerify(blockID+blockHash+currentCheckpointID,descriptor.pubKey,possibleCommitment).catch(_=>false)
-    
+                
                 if(commitmentIsOk) commitmentsForCurrentBlock.set(descriptor.pubKey,possibleCommitment)
     
             }).catch(_=>false)
@@ -438,7 +444,6 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         await Promise.all(promises)
 
     }
-
 
     //_______________________ It means that we now have enough commitments for appropriate block. Now we can start to generate FINALIZATION_PROOF _______________________
 
@@ -633,7 +638,7 @@ let PREPARE_HANDLERS = async () => {
 
 export const CHECKPOINT_TRACKER = async () => {
 
-    let stillNoCheckpointOrNextDay = CURRENT_CHECKPOINT_ID === '' || CHECK_IF_THE_SAME_DAY(TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID).CHECKPOINT.TIMESTAMP,GET_GMT_TIMESTAMP())
+    let stillNoCheckpointOrNextDay = CURRENT_CHECKPOINT_ID === '' || !CHECK_IF_THE_SAME_DAY(TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID).CHECKPOINT.TIMESTAMP,GET_GMT_TIMESTAMP())
 
 
     if(stillNoCheckpointOrNextDay){
