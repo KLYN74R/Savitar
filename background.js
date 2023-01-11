@@ -367,6 +367,75 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
 }
 
 
+let TRY_TO_GET_SFP=async(nextBlockIndex,blockHash,subchain,currentCheckpointID,currentCheckpointTempObject)=>{
+
+    let subchainMetadata = currentCheckpointTempObject.SUBCHAINS_METADATA.get(subchain)
+
+    let blockID = subchain+':'+nextBlockIndex
+
+    let itsProbablySuperFinalizationProof = await fetch(`${subchainMetadata.URL}/get_super_finalization/${blockID+blockHash}`).then(r=>r.json()).catch(_=>false)
+
+
+
+    if(itsProbablySuperFinalizationProof){
+
+       let  generalAndTypeCheck =   itsProbablySuperFinalizationProof
+                                    &&
+                                    typeof itsProbablySuperFinalizationProof.aggregatedPub === 'string'
+                                    &&
+                                    typeof itsProbablySuperFinalizationProof.aggregatedSignature === 'string'
+                                    &&
+                                    typeof itsProbablySuperFinalizationProof.blockID === 'string'
+                                    &&
+                                    typeof itsProbablySuperFinalizationProof.blockHash === 'string'
+                                    &&
+                                    Array.isArray(itsProbablySuperFinalizationProof.afkValidators)
+
+
+        if(generalAndTypeCheck){
+
+            //Verify it before return
+
+            let aggregatedSignatureIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+currentCheckpointID,itsProbablySuperFinalizationProof.aggregatedPub,itsProbablySuperFinalizationProof.aggregatedSignature).catch(_=>false),
+
+                rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablySuperFinalizationProof.aggregatedPub,...itsProbablySuperFinalizationProof.afkValidators]),
+
+                quorumSize = currentCheckpointTempObject.CHECKPOINT.QUORUM.length,
+
+                majority = GET_MAJORITY(currentCheckpointTempObject)
+
+
+            let majorityVotedForThis = quorumSize-itsProbablySuperFinalizationProof.afkValidators.length >= majority
+
+
+            if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
+
+                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SFP:'+blockID+blockHash,itsProbablySuperFinalizationProof).catch(_=>false)
+
+                // Repeat procedure for the next block and store the progress
+        
+                subchainMetadata.INDEX = nextBlockIndex
+        
+                subchainMetadata.HASH = blockHash
+        
+                subchainMetadata.SUPER_FINALIZATION_PROOF = itsProbablySuperFinalizationProof
+                
+                // To keep progress
+                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,subchain,subchainMetadata).catch(_=>false)
+
+                LOG(`\u001b[38;5;129m[ϟ](via instant) \x1b[32;1mReceived SFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${blockHash})`,'S')
+
+                return true
+
+            }
+    
+        }
+        
+    }
+
+}
+
+
 
 
 let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex) => {
@@ -385,6 +454,12 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
     if(!block) return
 
     let blockHash = GET_BLOCK_HASH(block)
+
+
+    let sfpStatus = await TRY_TO_GET_SFP(nextBlockIndex,blockHash,subchain,currentCheckpointID,currentCheckpointTempObject)
+
+    if(sfpStatus) return
+
 
     let optionsToSend = {method:'POST',body:JSON.stringify(block)},
 
@@ -753,6 +828,8 @@ export const CHECKPOINT_TRACKER = async () => {
 
             }
 
+            // Get the new rootpub
+            tempObject.CACHE.set('ROOTPUB',bls.aggregatePublicKeys(tempObject.CHECKPOINT.QUORUM))
 
             //Change the pointer for next checkpoint
             CURRENT_CHECKPOINT_ID = nextCheckpointFullID
