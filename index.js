@@ -16,7 +16,7 @@
 //__________________________________________ TABLE OF IMPORTS __________________________________________
 
 
-import {CHECKPOINT_TRACKER,LOG, USE_TEMPORARY_DB} from './background.js'
+import {CHECKPOINT_TRACKER,LOG,USE_TEMPORARY_DB} from './background.js'
 import UWS from 'uWebSockets.js'
 import fs from 'fs'
 
@@ -85,6 +85,6 @@ UWS.App()
 
 .listen(CONFIGS.SERVER_CONFIGS.INTERFACE,CONFIGS.SERVER_CONFIGS.PORT,_=>{
 
-    LOG(`API server started on ${CONFIGS.SERVER_CONFIGS.INTERFACE}:${CONFIGS.SERVER_CONFIGS.PORT}`,'CON')
+    LOG(`API server started on \u001b[38;5;196m${CONFIGS.SERVER_CONFIGS.INTERFACE}:${CONFIGS.SERVER_CONFIGS.PORT}`,'CD')
 
 })

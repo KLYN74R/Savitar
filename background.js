@@ -49,14 +49,10 @@ global.CURRENT_CHECKPOINT_ID = '' // PAYLOAD_HASH+INDEX
 const COLORS = {
     C:'\x1b[0m',
     T:`\u001b[38;5;23m`, // for time view
-    F:'\x1b[31;1m', // red(error,no collapse,problems with sequence,etc.)
+    F:'\u001b[38;5;196m', // red(error,no collapse,problems with sequence,etc.)
     S:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
-    W:'\u001b[38;5;3m', // yellow(non critical warnings)
-    I:'\x1b[36;1m', // cyan(default messages useful to grasp the events)
     CB:'\u001b[38;5;200m',// ControllerBlock
     CD:`\u001b[38;5;50m`,// Canary died
-    GTS:`\u001b[38;5;m`,// Generation Thread Stop
-    CON:`\u001b[38;5;168m`// CONFIGS
 }
 
 const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
@@ -129,7 +125,8 @@ const GET_VERIFIED_BLOCK = async (subchain,blockIndex,currentCheckpointTempObjec
 
         // Store to temporary db
 
-        await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID,possibleBlock).catch(_=>false)
+        await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID,possibleBlock).catch(_=>{})
+
 
         return possibleBlock
 
@@ -602,7 +599,7 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
     // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
     if(!currentCheckpointTempObject){
 
-        setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID),100)
+        setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),100)
 
         return
 
@@ -621,7 +618,7 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
         }else {
 
             // Repeat later if URL was/wasn't found
-            setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID),2000)
+            setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),2000)
 
         }
 
@@ -649,7 +646,7 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
     }
 
-    setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID),0)
+    setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),0)
 
 }
 
@@ -661,14 +658,14 @@ export let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
 
     if(operationType === 'get'){
 
-        let value = await dbReference.get(key)
+        let value = await dbReference.get(key).catch(_=>false)
 
         return value
 
     }
-    else if(operationType === 'put') await dbReference.put(key,value)
+    else if(operationType === 'put') await dbReference.put(key,value).catch(_=>false)
 
-    else await dbReference.del(key)
+    else await dbReference.del(key).catch(_=>false)
 
 }
 
@@ -681,7 +678,7 @@ let START_BLOCK_GRABBING_PROCESS=async subchain=>{
 
     if(!tempObject){
 
-        setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain),100)
+        setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>false),100)
 
         return
 
@@ -734,7 +731,7 @@ let START_BLOCK_GRABBING_PROCESS=async subchain=>{
     }).catch(_=>{})
 
     // An endless process
-    setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain),0)
+    setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>false),0)
 
 
 }
@@ -769,7 +766,7 @@ let PREPARE_HANDLERS = async () => {
 
     }
 
-    LOG(`\u001b[38;5;196mSubchains metadata is ready`,'S')
+    LOG(`Subchains metadata is ready`,'CD')
 
 }
 
@@ -785,9 +782,10 @@ export const CHECKPOINT_TRACKER = async () => {
 
         let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/get_quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
 
-        if(latestCheckpointOrError.COMPLETED){
+        let nextCheckpointFullID = latestCheckpointOrError?.HEADER?.PAYLOAD_HASH + latestCheckpointOrError?.HEADER?.ID
 
-            let nextCheckpointFullID = latestCheckpointOrError.HEADER.PAYLOAD_HASH + latestCheckpointOrError.HEADER.ID
+
+        if(latestCheckpointOrError.COMPLETED && nextCheckpointFullID !== CURRENT_CHECKPOINT_ID){
 
             let tempDatabase = level('TEMP/'+nextCheckpointFullID,{valueEncoding:'json'})
 
@@ -821,15 +819,19 @@ export const CHECKPOINT_TRACKER = async () => {
                 tempObject.CACHE = currentTempObject.CACHE || new Map()//create new cache based on previous one
 
                 tempObject.CACHE.delete('VALIDATORS_URLS') //this value will be new
-        
-                await currentTempObject.DATABASE.close()
 
+
+                await currentTempObject.DATABASE.close()
+            
                 fs.rm(`.TEMP/${CURRENT_CHECKPOINT_ID}`,{recursive:true},()=>{})
 
             }
 
             // Get the new rootpub
             tempObject.CACHE.set('ROOTPUB',bls.aggregatePublicKeys(tempObject.CHECKPOINT.QUORUM))
+
+            // Clear old cache
+            TEMP_CACHE_PER_CHECKPOINT.delete(CURRENT_CHECKPOINT_ID)
 
             //Change the pointer for next checkpoint
             CURRENT_CHECKPOINT_ID = nextCheckpointFullID
@@ -842,19 +844,13 @@ export const CHECKPOINT_TRACKER = async () => {
             
             Object.keys(latestCheckpointOrError.PAYLOAD.SUBCHAINS_METADATA).forEach(subchain=>{
 
-                SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain)
+                SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain).catch(_=>{})
 
-                START_BLOCK_GRABBING_PROCESS(subchain)
+                START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>{})
 
             })
 
-        }else {
-
-            LOG(`Can't get the latest checkpoint => \u001b[0m${latestCheckpointOrError}`,'CD')
-
-            LOG(`Going to wait for a few and repeat`,'I')
-
-        }
+        }else LOG(`Can't get the latest checkpoint. Going to wait for a few and repeat`,'F')
 
     }
 
