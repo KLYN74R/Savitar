@@ -103,10 +103,10 @@ const GET_VERIFIED_BLOCK = async (subchain,blockIndex,currentCheckpointTempObjec
 
     let subchainMetadata = currentCheckpointTempObject.SUBCHAINS_METADATA.get(subchain)
 
-
     //________________________________ 0. Get the block from pool authority by given URL ________________________________
 
     let possibleBlock = await fetch(subchainMetadata.URL+`/block/`+blockID).then(r=>r.json()).catch(_=>false)
+
 
     let overviewIsOk = 
     
@@ -595,7 +595,6 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
     let currentCheckpointTempObject = TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
 
-
     // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
     if(!currentCheckpointTempObject){
 
@@ -619,6 +618,8 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
             // Repeat later if URL was/wasn't found
             setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),2000)
+
+            return
 
         }
 
@@ -706,15 +707,17 @@ let START_BLOCK_GRABBING_PROCESS=async subchain=>{
 
         }else{
 
-            blockID = subchain+':'+subchainMetadata.INDEX
+            let indexToFind = subchainMetadata.INDEX+1
 
-            tempObject.CACHE.set('BLOCK_POINTER:'+subchain,subchainMetadata.INDEX)
+            blockID = subchain+':'+indexToFind
+
+            tempObject.CACHE.set('BLOCK_POINTER:'+subchain,indexToFind)
 
         }
         
     }
     
-
+    
     await fetch(`${subchainMetadata.URL}/block/${blockID}`).then(r=>r.json()).then(async block=>{
 
         LOG(`Received block \u001b[38;5;50m${blockID}`,'S')
