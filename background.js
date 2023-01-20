@@ -718,6 +718,7 @@ let START_BLOCK_GRABBING_PROCESS=async subchain=>{
     }
     
     
+    
     await fetch(`${subchainMetadata.URL}/block/${blockID}`).then(r=>r.json()).then(async block=>{
 
         LOG(`Received block \u001b[38;5;50m${blockID}`,'S')
