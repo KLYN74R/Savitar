@@ -632,6 +632,7 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
     let blockID = subchainID+':'+nextIndex
 
+
     if(FINALIZATION_PROOFS.has(blockID)){
 
         //This option means that we already started to share aggregated 2/3N+1 commitments and grab 2/3+1 FINALIZATION_PROOFS
@@ -667,6 +668,94 @@ export let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
     else if(operationType === 'put') await dbReference.put(key,value).catch(_=>false)
 
     else await dbReference.del(key).catch(_=>false)
+
+}
+
+
+
+
+let SKIP_STAGE_3_MONITORING = async subchainID => {
+
+
+    let currentCheckpointID = CURRENT_CHECKPOINT_ID
+
+    let currentCheckpointTempObject = TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
+
+    // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
+    if(!currentCheckpointTempObject){
+
+        setTimeout(()=>SKIP_STAGE_3_MONITORING(subchainID).catch(_=>false),100)
+
+        return
+
+    }
+
+
+    let itsProbablySkipStage3 = await fetch(`${CONFIGS.NODE}/skip_procedure_stage_3/${subchainID}`).then(r=>r.json()).catch(_=>false)
+
+
+    /*
+        
+        The structure must be like this
+        
+        {subchain,index,hash,aggregatedPub,aggregatedSignature,afkValidators}
+
+    */
+
+    let overviewIsOk = 
+    
+        typeof itsProbablySkipStage3.subchain === 'string'
+        &&
+        typeof itsProbablySkipStage3.index === 'number'
+        &&
+        typeof itsProbablySkipStage3.hash === 'string'
+        &&
+        typeof itsProbablySkipStage3.aggregatedPub === 'string'
+        &&
+        typeof itsProbablySkipStage3.aggregatedSignature === 'string'
+        &&
+        Array.isArray(itsProbablySkipStage3.afkValidators)
+
+
+
+    if(overviewIsOk){
+
+        // Check the signature
+
+        let {INDEX,HASH} = currentCheckpointTempObject.SUBCHAINS_METADATA.get(subchainID) // => {INDEX,HASH,SUPER_FINALIZATION_PROOF(?),URL(?)}
+
+        let data =`SKIP_STAGE_3:${subchainID}:${INDEX}:${HASH}:${currentCheckpointID}`
+
+        let aggregatedSignatureIsOk = await bls.singleVerify(data,itsProbablySkipStage3.aggregatedPub,itsProbablySkipStage3.aggregatedSignature).catch(_=>false)
+
+        let rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablySkipStage3.aggregatedPub,...itsProbablySkipStage3.afkValidators])
+
+        let quorumSize = currentCheckpointTempObject.CHECKPOINT.QUORUM.length
+
+        let majority = GET_MAJORITY(currentCheckpointTempObject)
+
+        let majorityVotedForThis = quorumSize-itsProbablySkipStage3.afkValidators.length >= majority
+
+
+        if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
+
+            let result = await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SKIP_STAGE_3:'+subchainID,itsProbablySkipStage3).catch(_=>false)
+
+            if(result!==false){
+
+                LOG(`Seems that subchain \u001b[38;5;50m${subchainID}\u001b[38;5;196m was stopped on \u001b[38;5;50m${INDEX}\u001b[38;5;196m block \u001b[38;5;219m(hash:${HASH})`,'F')
+
+                return
+
+            }
+        
+        }
+
+    }
+
+
+    // Repeat the same procedure
+    setTimeout(()=>SKIP_STAGE_3_MONITORING(subchainID).catch(_=>false),7000)
 
 }
 
@@ -851,6 +940,9 @@ export const CHECKPOINT_TRACKER = async () => {
                 SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain).catch(_=>{})
 
                 START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>{})
+
+                SKIP_STAGE_3_MONITORING(subchain).catch(_=>{})
+
 
             })
 
