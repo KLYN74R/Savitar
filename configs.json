@@ -10,6 +10,13 @@
         "PORT":9393
     },
 
+    "SERVER_TRIGGERS":{
+
+        "GET_SUPER_FINALIZATION":1,
+        "GET_SKIP_STAGE_3":1
+
+    },
+
     "STUFF_DEALER":"http://localhost:7331",
     "CHECKPOINT_TRACKER_TIMEOUT":5000
 

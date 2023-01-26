@@ -60,27 +60,72 @@ UWS.App()
 
 .get('/health',response=>response.end("Not on my shift"))
 
-.get('/super_finalization_proof/:blockID',async(response,request)=>{
+.get('/get_super_finalization/:BLOCK_ID_AND_HASH',async(response,request)=>{
 
-    response.onAborted(()=>response.aborted=true)
+    response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
+
+
+    if(CONFIGS.SERVER_TRIGGERS.GET_SUPER_FINALIZATION){
+
+        if(CURRENT_CHECKPOINT_ID===''){
+
+            !response.aborted && response.end(JSON.stringify({error:'Checkpoint is not ready'}))
+
+            return
+        }
+
+        let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+
+        if(!tempObject){
+            
+            !response.aborted && response.end(JSON.stringify({error:'Checkpoint is not ready'}))
     
-    let superFinalizationProof = await USE_TEMPORARY_DB('get',TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)?.DATABASE,'SFP:'+request.getParameter(0)).catch(_=>false)
+            return
     
-    if(superFinalizationProof){
-    
-        response.end(JSON.stringify(superFinalizationProof))
-    
-    }else response.end(JSON.stringify({error:'No SFP'}))
+        }
+
+        let superFinalizationProof = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'SFP:'+request.getParameter(0)).catch(_=>false)
+
+        if(superFinalizationProof){
+
+            !response.aborted && response.end(JSON.stringify(superFinalizationProof))
+
+        }else !response.aborted && response.end(JSON.stringify({error:'No SFP for a given block'}))
+
+    }else !response.aborted && response.end(JSON.stringify({error:'Route is off'}))
 
 
 })
 
-// To check the status of some tx
-// .get('/tx_status/:sighash',(response,request)=>{
+.get('/skip_procedure_stage_3/:subchain',async (response,request) => {
 
+    response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
+
+    if(CONFIGS.SERVER_TRIGGERS.GET_SKIP_STAGE_3){
+
+        let subchain = request.getParameter(0)
+
+        let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+    
+        if(CURRENT_CHECKPOINT_ID==='' || !tempObject){
+
+            !response.aborted && response.end(JSON.stringify({error:'Checkpoint is not ready'}))
+            
+            return
+        }
     
 
-// })
+        let skipStage3Proof = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'SKIP_STAGE_3:'+subchain).catch(_=>false)
+    
+    
+        if(skipStage3Proof) !response.aborted && response.end(JSON.stringify(skipStage3Proof))
+    
+        else !response.aborted && response.end(JSON.stringify({error:'No SKIP_STAGE_3 for given subchain'}))
+    
+    
+    } else !response.aborted && response.end(JSON.stringify({error:'Route is off'}))
+    
+})
 
 
 .listen(CONFIGS.SERVER_CONFIGS.INTERFACE,CONFIGS.SERVER_CONFIGS.PORT,_=>{
