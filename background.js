@@ -340,7 +340,7 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
 
 
         // Store locally
-        await USE_TEMPORARY_DB('put',DATABASE,'SFP:'+blockID+blockHash,superFinalizationProof).catch(_=>false)
+        await USE_TEMPORARY_DB('put',DATABASE,'SFP:'+blockID,superFinalizationProof).catch(_=>false)
 
         // Repeat procedure for the next block and store the progress
 
@@ -407,7 +407,7 @@ let TRY_TO_GET_SFP=async(nextBlockIndex,blockHash,subchain,currentCheckpointID,c
 
             if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
 
-                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SFP:'+blockID+blockHash,itsProbablySuperFinalizationProof).catch(_=>false)
+                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SFP:'+blockID,itsProbablySuperFinalizationProof).catch(_=>false)
 
                 // Repeat procedure for the next block and store the progress
         

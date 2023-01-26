@@ -60,7 +60,7 @@ UWS.App()
 
 .get('/health',response=>response.end("Not on my shift"))
 
-.get('/get_super_finalization/:BLOCK_ID_AND_HASH',async(response,request)=>{
+.get('/get_super_finalization/:BLOCK_ID',async(response,request)=>{
 
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
@@ -97,7 +97,7 @@ UWS.App()
 
 })
 
-.get('/skip_procedure_stage_3/:subchain',async (response,request) => {
+.get('/skip_procedure_stage_3/:SUBCHAIN',async (response,request) => {
 
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
