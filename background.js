@@ -370,10 +370,11 @@ let TRY_TO_GET_SFP=async(nextBlockIndex,blockHash,subchain,currentCheckpointID,c
 
     let blockID = subchain+':'+nextBlockIndex
 
-    let itsProbablySuperFinalizationProof = await fetch(`${subchainMetadata.URL}/get_super_finalization/${blockID+blockHash}`).then(r=>r.json()).catch(_=>false)
+    let itsProbablySuperFinalizationProof = await fetch(`${subchainMetadata.URL}/get_super_finalization/${blockID}`).then(r=>r.json()).catch(_=>false)
 
 
 
+    
     if(itsProbablySuperFinalizationProof){
 
        let  generalAndTypeCheck =   itsProbablySuperFinalizationProof
