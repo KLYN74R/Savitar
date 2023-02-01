@@ -1,6 +1,6 @@
 {
     "SYMBIOTE_ID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "NODE":"http://localhost:7331",
+    "NODE":"http://localhost:7332",
 
     "PASSIVE":false,
     "PROACTIVE_SETTING":{},
@@ -17,7 +17,7 @@
 
     },
 
-    "STUFF_DEALER":"http://localhost:7331",
+    "STUFF_DEALER":"http://localhost:7332",
     "CHECKPOINT_TRACKER_TIMEOUT":5000
 
 }
