@@ -433,6 +433,199 @@ let TRY_TO_GET_SFP=async(nextBlockIndex,blockHash,subchain,currentCheckpointID,c
 
 
 
+let RUN_BATCH_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex) => {
+
+
+    let blocksArray=[]
+
+    let futureFp=[]
+
+    let blockAndHash = new Map()
+
+    let commitmentsMapping = currentCheckpointTempObject.COMMITMENTS
+
+
+    for(let i=0,limit=20;i<limit;i++){
+
+        let blockID = subchain+':'+(nextBlockIndex+i)
+
+        let block = await USE_TEMPORARY_DB('get',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID)
+    
+        .catch(
+            
+            _ => GET_VERIFIED_BLOCK(subchain,nextBlockIndex+i,currentCheckpointTempObject)
+            
+        )
+
+
+        if(!block) return
+
+        let blockHash = GET_BLOCK_HASH(block)
+
+        blockAndHash.set(blockID,blockHash)
+
+        let sfpStatus = await TRY_TO_GET_SFP(nextBlockIndex,blockHash,subchain,currentCheckpointID,currentCheckpointTempObject)
+
+        if(sfpStatus) continue
+
+        else{
+
+            blocksArray.push(block)
+
+            if(!commitmentsMapping.has(blockID)){
+
+                commitmentsMapping.set(blockID,new Map()) // inner mapping contains voterValidatorPubKey => his commitment 
+            
+            }
+
+        }
+
+    }
+
+
+    let optionsToSend = {method:'POST',body:JSON.stringify(blocksArray)},
+        
+        majority = GET_MAJORITY(currentCheckpointTempObject),
+
+        quorumMembers = GET_QUORUM_URLS(currentCheckpointTempObject),
+
+        promises=[]
+
+
+    
+    // for(let i=0,limit=10;i<limit;i++){
+
+    //     let blockID = subchain+':'+(nextBlockIndex+i)
+    
+    //     let commitmentsForCurrentBlock = commitmentsMapping.get(blockID)
+        
+    // }    
+
+
+        //Descriptor is {pubKey,url}
+        for(let descriptor of quorumMembers){
+
+    
+            /*
+            
+            0. Share the block via POST /block and get the commitment as the answer
+       
+            1. After getting 2/3N+1 commitments, aggregate it and call POST /finalization to send the aggregated commitment to the quorum members and get the 
+    
+            2. Get the 2/3N+1 FINALIZATION_PROOFs, aggregate and call POST /super_finalization to share the SUPER_FINALIZATION_PROOFS over the symbiote
+    
+            */
+
+    
+            let promise = fetch(descriptor.url+'/many_blocks',optionsToSend).then(r=>r.json()).then(async possibleCommitments=>{
+
+                Object.keys(possibleCommitments).forEach(blockID=>{
+
+                    commitmentsMapping.get(blockID).set(descriptor.pubKey,possibleCommitments[blockID])
+
+                    if(commitmentsMapping.get(blockID).size>=majority){
+
+                        let commitmentsForCurrentBlock=commitmentsMapping.get(blockID)
+
+                        let signers = [...commitmentsForCurrentBlock.keys()]
+
+                        let signatures = [...commitmentsForCurrentBlock.values()]
+                
+                        let afkValidators = currentCheckpointTempObject.CHECKPOINT.QUORUM.filter(pubKey=>!signers.includes(pubKey))
+                
+                        let aggregatedCommitments = {
+
+                            blockID,
+                            
+                            blockHash:blockAndHash.get(blockID),
+                            
+                            aggregatedPub:bls.aggregatePublicKeys(signers),
+                            
+                            aggregatedSignature:bls.aggregateSignatures(signatures),
+                            
+                            afkValidators
+                
+                        }
+                
+                        //Set the aggregated version of commitments to start to grab FINALIZATION_PROOFS
+                        commitmentsMapping.set(blockID,aggregatedCommitments)
+                
+                        futureFp.push(aggregatedCommitments)
+
+                        if(!currentCheckpointTempObject.FINALIZATION_PROOFS.has(blockID)){
+
+                            currentCheckpointTempObject.FINALIZATION_PROOFS.set(blockID,new Map())
+
+                        }
+
+                        
+
+                    }
+
+                })
+                
+                // let commitmentIsOk = await bls.singleVerify(blockID+blockHash+currentCheckpointID,descriptor.pubKey,possibleCommitments).catch(_=>false)
+                
+                // if(commitmentIsOk) commitmentsForCurrentBlock.set(descriptor.pubKey,possibleCommitments)
+    
+            }).catch(_=>false)
+    
+            // To make sharing async
+            promises.push(promise)
+    
+        }
+    
+        await Promise.all(promises)
+
+
+        for(let descriptor of quorumMembers){
+
+            fetch(descriptor.url+'/many_finalization',{method:'POST',body:JSON.stringify(futureFp)}).then(r=>r.json()).then(async data=>{
+
+
+                for(let i=0;i<futureFp.length;i++){
+
+                    let signatureIsOk = await bls.singleVerify(futureFp[i].blockID+futureFp[i].blockHash+'FINALIZATION'+currentCheckpointID,descriptor.pubKey,data[i]).catch(_=>console.log(_))    
+    
+                    if(signatureIsOk){
+
+                        if(!currentCheckpointTempObject.FINALIZATION_PROOFS.has(futureFp[i].blockID)){
+
+                            currentCheckpointTempObject.FINALIZATION_PROOFS.set(futureFp[i].blockID,new Map())
+
+                        }
+
+                        currentCheckpointTempObject.FINALIZATION_PROOFS.get(futureFp[i].blockID).set(descriptor.pubKey,data[i])
+
+
+                        if(currentCheckpointTempObject.FINALIZATION_PROOFS.get(futureFp[i].blockID).size>=majority){
+
+
+                            LOG(`################ RECEIVED SFP FOR => ${futureFp[i].blockID}`,'CD')
+
+                            let subchainMetadata = currentCheckpointTempObject.SUBCHAINS_METADATA.get(subchain)
+
+
+                            subchainMetadata.INDEX = +(futureFp[i].blockID.split(':')[1])
+
+                            subchainMetadata.HASH = futureFp[i].blockHash
+
+
+                        }
+
+
+                    }
+    
+                }
+
+            }).catch(e=>console.log('Errr ',e))
+
+        }
+
+}
+
+
+
 
 let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex) => {
 
