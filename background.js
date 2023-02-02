@@ -711,8 +711,6 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
     }
 
 
-    console.log('Commitments ',commitmentsForCurrentBlock)
-
     //_______________________ It means that we now have enough commitments for appropriate block. Now we can start to generate FINALIZATION_PROOF _______________________
 
     // On this step we should go through the quorum members and share FINALIZATION_PROOF to get the SUPER_FINALIZATION_PROOFS(and this way - finalize the block)
@@ -1074,6 +1072,8 @@ let START_BLOCK_GRABBING_PROCESS=async subchain=>{
     await fetch(`${subchainMetadata.URL}/block/${blockID}`).then(r=>r.json()).then(async block=>{
 
         LOG(`Received block \u001b[38;5;50m${blockID}`,'S')
+
+        console.log(block)
 
         await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK:'+blockID,block).catch(_=>{})
 
