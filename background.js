@@ -212,7 +212,7 @@ export const LOG=(msg,msgColor)=>{
 
 
 
-let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex,afkValidators) => {
+let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex) => {
 
 
     let blockID = subchain+':'+nextBlockIndex
@@ -233,10 +233,14 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
 
     let {COMMITMENTS,FINALIZATION_PROOFS,DATABASE} = currentCheckpointTempObject
 
-
     //Create the mapping to get the FINALIZATION_PROOFs from the quorum members. Inner mapping contains voterValidatorPubKey => his FINALIZATION_PROOF   
     
-    FINALIZATION_PROOFS.set(blockID,new Map())
+    if(!FINALIZATION_PROOFS.has(blockID)){
+
+        FINALIZATION_PROOFS.set(blockID,new Map())
+
+    }
+    
 
 
     let finalizationProofsMapping = FINALIZATION_PROOFS.get(blockID),
@@ -251,6 +255,7 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (currentCheckpointID,currentCheckpo
         majority = GET_MAJORITY(currentCheckpointTempObject),
 
         promises = []
+
 
 
 
@@ -518,8 +523,6 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
     }
 
 
-    console.log('Commitments ',commitmentsForCurrentBlock)
-
     //_______________________ It means that we now have enough commitments for appropriate block. Now we can start to generate FINALIZATION_PROOF _______________________
 
     // On this step we should go through the quorum members and share FINALIZATION_PROOF to get the SUPER_FINALIZATION_PROOFS(and this way - finalize the block)
@@ -571,7 +574,7 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         //Set the aggregated version of commitments to start to grab FINALIZATION_PROOFS
         commitmentsMapping.set(blockID,aggregatedCommitments)
     
-        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex,afkValidators)
+        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex)
 
     }
 
@@ -649,72 +652,6 @@ let SEND_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
 
         await RUN_COMMITMENTS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchainID,nextIndex)
 
-    }
-
-    setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),0)
-
-}
-
-
-
-
-let SEND_BATCH_BLOCKS_AND_GRAB_COMMITMENTS = async subchainID => {
-
-    
-    let currentCheckpointID = CURRENT_CHECKPOINT_ID
-
-    let currentCheckpointTempObject = TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
-
-    // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
-    if(!currentCheckpointTempObject){
-
-        setTimeout(()=>SEND_BATCH_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),100)
-
-        return
-
-    }
-
-    let handlerForSubchain = currentCheckpointTempObject.SUBCHAINS_METADATA.get(subchainID) // => {INDEX,HASH,SUPER_FINALIZATION_PROOF(?),URL(?)}
-
-    if(!handlerForSubchain.URL){
-
-        let poolURL = await FIND_URL_FOR_POOL(subchainID)
-
-        if(poolURL){
-
-            handlerForSubchain.URL = poolURL
-
-        }else {
-
-            // Repeat later if URL was/wasn't found
-            setTimeout(()=>SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchainID).catch(_=>false),2000)
-
-            return
-
-        }
-
-    }
-
-
-    let {FINALIZATION_PROOFS} = currentCheckpointTempObject
-
-    let nextIndex = handlerForSubchain.INDEX+1
-
-    let blockID = subchainID+':'+nextIndex
-
-
-    if(FINALIZATION_PROOFS.has(blockID)){
-
-        //This option means that we already started to share aggregated 2/3N+1 commitments and grab 2/3+1 FINALIZATION_PROOFS
-        
-        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchainID,nextIndex)
-
-    }else{
-
-        // This option means that we already started to share block and going to find 2/3N+1 commitments
-        // Once we get it - aggregate it and start finalization proofs grabbing(previous option) 
-
-        await RUN_COMMITMENTS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchainID,nextIndex)
 
     }
 
@@ -935,35 +872,6 @@ let PREPARE_HANDLERS = async () => {
 
 
 
-let GET_BLOCKS=async subchain=>{
-
-    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
-
-    if(!tempObject){
-
-        setTimeout(()=>START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>false),100)
-
-        return
-
-    }
-
-    let subchainMetadata = tempObject.SUBCHAINS_METADATA.get(subchain) // BLS pubkey of pool => {INDEX,HASH,SUPER_FINALIZATION_PROOF,URL}
-
-    let blockID = subchain+':'+0
-    
-    await fetch(`${subchainMetadata.URL}/block/${blockID}`).then(r=>r.json()).then(async block=>{
-
-        console.log(block)
-
-    }).catch(_=>{})
-
-    // An endless process
-    setTimeout(()=>GET_BLOCKS(subchain).catch(_=>false),0)
-
-
-}
-
-
 
 export const CHECKPOINT_TRACKER = async () => {
 
@@ -1036,19 +944,11 @@ export const CHECKPOINT_TRACKER = async () => {
             
             Object.keys(latestCheckpointOrError.PAYLOAD.SUBCHAINS_METADATA).forEach(subchain=>{
 
-                if(subchain==='61TXxKDrBtb7bjpBym8zS9xRDoUQU6sW9aLvvqN9Bp9LVFiSxhRPd9Dwy3N3621RQ8'){
+                SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain).catch(_=>{})
 
-                    SEND_BLOCKS_AND_GRAB_COMMITMENTS(subchain).catch(_=>{})
-
-                    START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>{})
-        
-                    SKIP_STAGE_3_MONITORING(subchain).catch(_=>{})
-    
-
-                    
-                }
-
-                // GET_BLOCKS(subchain)
+                START_BLOCK_GRABBING_PROCESS(subchain).catch(_=>{})
+                
+                SKIP_STAGE_3_MONITORING(subchain).catch(_=>{})
 
             })
 
