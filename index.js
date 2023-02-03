@@ -16,7 +16,8 @@
 //__________________________________________ TABLE OF IMPORTS __________________________________________
 
 
-import {CHECKPOINT_TRACKER,LOG,USE_TEMPORARY_DB} from './background.js'
+import {LOG,USE_TEMPORARY_DB} from './functionality.js'
+import {CHECKPOINT_TRACKER} from './background.js'
 import UWS from 'uWebSockets.js'
 import fs from 'fs'
 
