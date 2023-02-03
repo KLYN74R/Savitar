@@ -51,13 +51,13 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
     
         connection.on('close',(code,description) =>
         
-            LOG(`Closed connection with ${connection.remoteAddress} => ${code}      |       ${description}`)
+            LOG(`Closed connection with ${connection.remoteAddress} => ${code}      |       ${description}`,'F')
         
         )
     
         connection.on('error',error=>
 
-            LOG(`Error occured with ${connection.remoteAddress} => ${error}`)
+            LOG(`Error occured with ${connection.remoteAddress} => ${error}`,'F')
 
         )
 
