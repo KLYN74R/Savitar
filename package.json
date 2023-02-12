@@ -26,7 +26,8 @@
     "bls-wasm": "^0.4.8",
     "level": "^7.0.0",
     "node-fetch": "^3.2.2",
-    "websocket": "^1.0.34",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.3.0"
+    "socks-proxy-agent": "^7.0.0",
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.3.0",
+    "websocket": "^1.0.34"
   }
 }

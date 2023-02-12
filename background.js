@@ -149,8 +149,6 @@ export const CHECKPOINT_TRACKER = async() => {
 
                 tempObject.CACHE = currentTempObject.CACHE || new Map()//create new cache based on previous one
 
-                tempObject.CACHE.delete('VALIDATORS_URLS') //this value will be new
-
                 //Close wss connections
                 tempObject.WSS_CONNECTIONS.forEach(connection=>connection.close())
 

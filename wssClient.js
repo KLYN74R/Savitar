@@ -1,20 +1,32 @@
-import {START_BLOCK_GRABBING_PROCESS,WSS_HANDLERS,LOG,PATH_RESOLVE} from './functionality.js'
+import {
+    
+    WSS_HANDLERS,LOG,PATH_RESOLVE,
+    
+    START_BLOCK_GRABBING_PROCESS,SKIP_STAGE_3_MONITORING,SEND_BLOCKS_AND_GRAB_COMMITMENTS
+
+} from './functionality.js'
+
+
 import WS from 'websocket'
 import fs from 'fs'
 
+
+import {SocksProxyAgent} from 'socks-proxy-agent'
 
 
 
 export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
     let WebSocketClient = WS.client
-
+    
     let client = new WebSocketClient({
         
         tlsOptions:{
         
             // With TLS
-            ca:fs.readFileSync(PATH_RESOLVE('certificates/2022.crt'))
+            ca:fs.readFileSync(PATH_RESOLVE('certificates/2022.crt')),
+
+            agent:new SocksProxyAgent('socks5h://127.0.0.1:5666')
         
         }
     
@@ -68,8 +80,13 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         //____________________________ START ALL THE PROCEDURES ____________________________
 
+        SEND_BLOCKS_AND_GRAB_COMMITMENTS(poolID)
+
         START_BLOCK_GRABBING_PROCESS(poolID)
+
+        SKIP_STAGE_3_MONITORING(poolID)
           
+        
     })
 
 
