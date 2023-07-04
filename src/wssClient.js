@@ -26,7 +26,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
             // With TLS
             ca:fs.readFileSync(PATH_RESOLVE('certificates/2022.crt')),
 
-            agent:new SocksProxyAgent('socks5h://127.0.0.1:5666')
+            // agent:new SocksProxyAgent('socks5h://127.0.0.1:5666')
         
         }
     

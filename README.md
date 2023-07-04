@@ -7,7 +7,7 @@
 # <b>A super useful tool to grab finalization proofs & get latest state as fast as possible</b>
 
 
-<img src="./main.jpg">
+<img src="./images/main.jpg">
 
 </div>
 
@@ -48,7 +48,7 @@ You should define appropriate <code>SYMBIOTE_ID</code>(analogy for <code>chainId
 
 There is a screenshot of working node(N1 in local testnet with 4 nodes and 2 quorum members(pools)) and normal Savitar workflow(on the right)
 
-<img src="./savitar_work.png">
+<img src="./images/savitar_work.png">
 
 
 ## <b>API</b>

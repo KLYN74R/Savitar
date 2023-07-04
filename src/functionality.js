@@ -104,7 +104,7 @@ const GET_VERIFIED_BLOCK = async (poolPubKey,blockIndex,currentCheckpointTempObj
 
 const GET_MAJORITY = currentCheckpointTempObject => {
 
-    let quorumNumber = currentCheckpointTempObject.CHECKPOINT.QUORUM.length
+    let quorumNumber = currentCheckpointTempObject.CHECKPOINT.quorum.length
 
     let majority = Math.floor(quorumNumber*(2/3))+1
 
@@ -402,7 +402,7 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
 
         let signatures = [...finalizationProofsMapping.values()]
 
-        let afkVoters = currentCheckpointTempObject.CHECKPOINT.QUORUM.filter(pubKey=>!signers.includes(pubKey))
+        let afkVoters = currentCheckpointTempObject.CHECKPOINT.quorum.filter(pubKey=>!signers.includes(pubKey))
 
 
         /*
@@ -510,7 +510,7 @@ let TRY_TO_GET_AFP=async(nextBlockIndex,blockHash,poolPubKey,currentCheckpointID
 
                 rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablyAggregatedFinalizationProof.aggregatedPub,...itsProbablyAggregatedFinalizationProof.afkVoters]),
 
-                quorumSize = currentCheckpointTempObject.CHECKPOINT.QUORUM.length,
+                quorumSize = currentCheckpointTempObject.CHECKPOINT.quorum.length,
 
                 majority = GET_MAJORITY(currentCheckpointTempObject)
 
@@ -639,7 +639,7 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
 
         let signatures = [...commitmentsForCurrentBlock.values()]
 
-        let afkVoters = currentCheckpointTempObject.CHECKPOINT.QUORUM.filter(pubKey=>!signers.includes(pubKey))
+        let afkVoters = currentCheckpointTempObject.CHECKPOINT.quorum.filter(pubKey=>!signers.includes(pubKey))
 
 
         /*
@@ -819,7 +819,7 @@ export let SKIP_STAGE_3_MONITORING = async poolPubKey => {
 
         let rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablySkipStage3.aggregatedPub,...itsProbablySkipStage3.afkVoters])
 
-        let quorumSize = currentCheckpointTempObject.CHECKPOINT.QUORUM.length
+        let quorumSize = currentCheckpointTempObject.CHECKPOINT.quorum.length
 
         let majority = GET_MAJORITY(currentCheckpointTempObject)
 

@@ -81,21 +81,28 @@ let PREPARE_HANDLERS = async() => {
 
     }
 
-    LOG(`Subchains metadata is ready`,'CD')
+    LOG(`Pools metadata was built`,'CD')
 
 }
 
 
 
-let PREPARATION_TO_WORK = async subchain => {
+let PREPARATION_TO_WORK = async poolPubKey => {
 
-    let possiblePoolData = await fetch(CONFIGS.NODE+'/account/'+subchain+'(POOL)_STORAGE_POOL').then(r=>r.json()).catch(_=>false)
+    let poolOriginSubchain = await fetch(`${CONFIGS.NODE}/state/X/${poolPubKey}(POOL)_POINTER`).then(r=>r.json()).catch(_=>false)
 
-    if(possiblePoolData.wssPoolURL){
-        
-        OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES(subchain,possiblePoolData.wssPoolURL)
-        
-    }else setTimeout(()=>PREPARATION_TO_WORK(subchain),2000)
+    if(poolOriginSubchain){
+
+        let possiblePoolData = await fetch(`${CONFIGS.NODE}/state/${poolOriginSubchain}/${poolPubKey}(POOL)_STORAGE_POOL`).then(r=>r.json()).catch(_=>console.log(_))
+
+        if(possiblePoolData.wssPoolURL){
+            
+            OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES(poolPubKey,possiblePoolData.wssPoolURL)
+            
+        }else setTimeout(()=>PREPARATION_TO_WORK(poolPubKey),2000)
+
+
+    } else setTimeout(()=>PREPARATION_TO_WORK(poolPubKey),2000)
 
 }
 
@@ -109,9 +116,9 @@ export const CHECKPOINT_TRACKER = async() => {
 
     if(stillNoCheckpointOrNextDay){
 
-        let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/get_quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
+        let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
 
-        let nextCheckpointFullID = latestCheckpointOrError?.HEADER?.PAYLOAD_HASH + latestCheckpointOrError?.HEADER?.ID
+        let nextCheckpointFullID = latestCheckpointOrError?.header?.payloadHash + '#' + latestCheckpointOrError?.header?.id
         
 
         if(latestCheckpointOrError.completed && nextCheckpointFullID !== CURRENT_CHECKPOINT_ID){
@@ -159,7 +166,7 @@ export const CHECKPOINT_TRACKER = async() => {
             }
 
             // Get the new rootpub
-            tempObject.CACHE.set('ROOTPUB',bls.aggregatePublicKeys(tempObject.CHECKPOINT.QUORUM))
+            tempObject.CACHE.set('ROOTPUB',bls.aggregatePublicKeys(tempObject.CHECKPOINT.quorum))
 
             // Clear old cache
             TEMP_CACHE_PER_CHECKPOINT.delete(CURRENT_CHECKPOINT_ID)
@@ -167,7 +174,7 @@ export const CHECKPOINT_TRACKER = async() => {
             //Change the pointer for next checkpoint
             CURRENT_CHECKPOINT_ID = nextCheckpointFullID
 
-            LOG(`\u001b[38;5;154mLatest checkpoint found => \u001b[38;5;93m${latestCheckpointOrError.HEADER.ID} ### ${latestCheckpointOrError.HEADER.PAYLOAD_HASH}\u001b[0m`,'S')
+            LOG(`\u001b[38;5;154mLatest checkpoint found => \u001b[38;5;93m${latestCheckpointOrError.header.id} ### ${latestCheckpointOrError.header.payloadHash}\u001b[0m`,'S')
 
             await PREPARE_HANDLERS()
 

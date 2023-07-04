@@ -25,13 +25,13 @@ import fs from 'fs'
 //___________________________________________ CONSTANTS POOL ___________________________________________
 
 
-global.CONFIGS = JSON.parse(fs.readFileSync('./configs.json'))
+global.CONFIGS = JSON.parse(fs.readFileSync('../configs.json'))
 
 
 //____________________________________________ ART OUTPUT ______________________________________________
 
 
-let art = fs.readFileSync('./art.txt').toString()
+let art = fs.readFileSync('../images/art.txt').toString()
 
     .replaceAll('█','\u001b[38;5;154m█\u001b[0m')
 
@@ -66,7 +66,7 @@ UWS.App()
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
 
-    if(CONFIGS.SERVER_TRIGGERS.AGGREGATED_FINALIZATION_PROOF){
+    if(CONFIGS.SERVER_TRIGGERS.GET_AGGREGATED_FINALIZATION_PROOF){
 
         if(CURRENT_CHECKPOINT_ID===''){
 
