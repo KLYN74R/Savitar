@@ -12,7 +12,7 @@
 
     "SERVER_TRIGGERS":{
 
-        "GET_SUPER_FINALIZATION":1,
+        "AGGREGATED_FINALIZATION_PROOF":1,
         "GET_SKIP_STAGE_3":1
 
     },

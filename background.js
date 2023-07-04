@@ -13,9 +13,9 @@ import fs from 'fs'
 
 
 
-global.TEMP_CACHE_PER_CHECKPOINT = new Map() // checkpointFullID => {CHECKPOINT,DATABASE,SUBCHAINS_METADATA,...}
+global.TEMP_CACHE_PER_CHECKPOINT = new Map() // checkpointFullID => {CHECKPOINT,DATABASE,POOLS_METADATA,...}
 
-global.CURRENT_CHECKPOINT_ID = '' // PAYLOAD_HASH+INDEX
+global.CURRENT_CHECKPOINT_ID = '' // PAYLOAD_HASH+"#"+INDEX
 
 
 global.__dirname = await import('path').then(async mod=>
@@ -56,26 +56,26 @@ let PREPARE_HANDLERS = async() => {
 
     let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
 
-    let subchains = Object.keys(tempObject.CHECKPOINT.PAYLOAD.SUBCHAINS_METADATA)
+    let poolsPubKeys = Object.keys(tempObject.CHECKPOINT.payload.poolsMetadata)
 
-    let subchainsMetadata = tempObject.SUBCHAINS_METADATA // BLS pubkey of pool => {INDEX,HASH,SUPER_FINALIZATION_PROOF,URL}
+    let subchainsMetadata = tempObject.POOLS_METADATA // BLS pubkey of pool => {index,hash,aggregatedFinalizationProof,url}
 
 
-    for(let subchain of subchains){
+    for(let poolPubKey of poolsPubKeys){
 
-        let myMetadataForSubchainForThisCheckpoint = await USE_TEMPORARY_DB('get',tempObject.DATABASE,subchain).catch(_=>false)
+        let myMetadataForSubchainForThisCheckpoint = await USE_TEMPORARY_DB('get',tempObject.DATABASE,poolPubKey).catch(_=>false)
 
-        let metadataFromCheckpoint = tempObject.CHECKPOINT.PAYLOAD.SUBCHAINS_METADATA[subchain]
+        let metadataFromCheckpoint = tempObject.CHECKPOINT.payload.poolsMetadata[poolPubKey]
 
-        if(myMetadataForSubchainForThisCheckpoint && myMetadataForSubchainForThisCheckpoint.INDEX > metadataFromCheckpoint.INDEX){
+        if(myMetadataForSubchainForThisCheckpoint && myMetadataForSubchainForThisCheckpoint.index > metadataFromCheckpoint.index){
 
-            subchainsMetadata.set(subchain,myMetadataForSubchainForThisCheckpoint)
+            subchainsMetadata.set(poolPubKey,myMetadataForSubchainForThisCheckpoint)
 
         }else{
 
             // Otherwise - assign the data from checkpoint
 
-            subchainsMetadata.set(subchain,metadataFromCheckpoint)
+            subchainsMetadata.set(poolPubKey,metadataFromCheckpoint)
 
         }
 
@@ -114,7 +114,7 @@ export const CHECKPOINT_TRACKER = async() => {
         let nextCheckpointFullID = latestCheckpointOrError?.HEADER?.PAYLOAD_HASH + latestCheckpointOrError?.HEADER?.ID
         
 
-        if(latestCheckpointOrError.COMPLETED && nextCheckpointFullID !== CURRENT_CHECKPOINT_ID){
+        if(latestCheckpointOrError.completed && nextCheckpointFullID !== CURRENT_CHECKPOINT_ID){
 
             let tempDatabase = level('TEMP/'+nextCheckpointFullID,{valueEncoding:'json'})
 
@@ -122,7 +122,7 @@ export const CHECKPOINT_TRACKER = async() => {
 
                 CHECKPOINT:latestCheckpointOrError,
 
-                SUBCHAINS_METADATA:new Map(),
+                POOLS_METADATA:new Map(),
 
                 WSS_CONNECTIONS:new Map(), // pubKey => WSS connection object
 
@@ -132,7 +132,7 @@ export const CHECKPOINT_TRACKER = async() => {
         
                 FINALIZATION_PROOFS:new Map(), // aggregated proofs which proof that some validator has 2/3N+1 commitments for block PubX:Y with hash H. Key is blockID and value is FINALIZATION_PROOF object        
         
-                HEALTH_MONITORING:new Map(), //used to perform SKIP procedure when we need it and to track changes on subchains. SubchainID => {LAST_SEEN,HEIGHT,HASH,SUPER_FINALIZATION_PROOF:{aggregatedPub,aggregatedSig,afkValidators}}
+                HEALTH_MONITORING:new Map(), //used to perform SKIP procedure when we need it and to track changes on subchains. PoolPubKey => {lastSeen,index,hash,aggregatedFinalizationProof:{aggregatedPub,aggregatedSignature,afkVoters}}
                 
                 DATABASE:tempDatabase
         
@@ -173,9 +173,9 @@ export const CHECKPOINT_TRACKER = async() => {
 
             // After that - we can start grab commitements and so on with current(latest) version of symbiote state
             
-            Object.keys(latestCheckpointOrError.PAYLOAD.SUBCHAINS_METADATA).forEach(subchain=>
+            Object.keys(latestCheckpointOrError.payload.poolsMetadata).forEach(poolPubKey=>
 
-                PREPARATION_TO_WORK(subchain)
+                PREPARATION_TO_WORK(poolPubKey)
 
             )
 

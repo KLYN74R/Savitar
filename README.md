@@ -13,7 +13,7 @@
 
 ## <b>Intro</b>
 
-Savitar is used by <code>dev_tachyon</code> workflow to make a pro-active calls and get the <code>SUPER_FINALIZATION_PROOFS</code> after getting <code>commitments</code> and <code>finalization proofs</code>. This tool will be mutable, configurable and with maximum orientation on paralelization.
+Savitar is used by <code>dev_tachyon</code> workflow to make a pro-active calls and get the <code>AGGREGATED_FINALIZATION_PROOFS</code> after getting <code>commitments</code> and <code>finalization proofs</code>. This tool will be mutable, configurable and with maximum orientation on paralelization.
 
 ## <b>Who can use it</b>
 
@@ -44,7 +44,7 @@ Savitar requires working KLY node to make queries to. Look at configs
 
 ```
 
-You should define appropriate <code>SYMBIOTE_ID</code>(analogy for <code>chainId</code> in EVM-compatible chains) to work on appropriate symbiote(chain). Then, using <code>NODE</code> value, Savitar grabs the latest checkpoint and based on <code>SUBCHAINS_METADATA</code> starts to find blocks for approprate subchains and grab commitments and finalization proofs. Savitar has proactive mode, that's why it initiates a separate thread for each subchain to get the <code>SUPER_FINALIZATION_PROOF</code>
+You should define appropriate <code>SYMBIOTE_ID</code>(analogy for <code>chainId</code> in EVM-compatible chains) to work on appropriate symbiote(chain). Then, using <code>NODE</code> value, Savitar grabs the latest checkpoint and based on <code>poolsMetadata</code> starts to find blocks for approprate subchains and grab commitments and finalization proofs. Savitar has proactive mode, that's why it initiates a separate thread for each subchain to get the <code>AGGREGATED_FINALIZATION_PROOF</code>
 
 There is a screenshot of working node(N1 in local testnet with 4 nodes and 2 quorum members(pools)) and normal Savitar workflow(on the right)
 
@@ -58,4 +58,4 @@ For wallets and explorers Savitar proposes simple API (coming soon)
 
 ## <b>Improvements</b>
 
-Definitely it's initial solution and simplest proposed software for lightning fast finalization. In 2 files we insert apppropiate minimal logic. You can write your own realizations using Rust, C++ and so on. Moreover, soon it will be possible to build <b><i>KLY infrastructure</i></b> and using deep configs tree on workflows - create super-parallel solutions, scale, use <code>spooky action</code> and so on.
+Definitely it's initial solution and simplest proposed software for lightning fast finalization. In 2 files we insert apppropiate minimal logic. You can write your own realizations using Rust, C++ and so on. Moreover, soon it will be possible to build <b><i>KLY infrastructure</i></b> and using deep configs tree on workflows - create super-parallel solutions, scale and so on.

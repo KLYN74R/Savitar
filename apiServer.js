@@ -61,12 +61,12 @@ UWS.App()
 
 .get('/health',response=>response.end("Not on my shift"))
 
-.get('/get_super_finalization/:BLOCK_ID',async(response,request)=>{
+.get('/aggregated_finalization_proof/:BLOCK_ID',async(response,request)=>{
 
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
 
-    if(CONFIGS.SERVER_TRIGGERS.GET_SUPER_FINALIZATION){
+    if(CONFIGS.SERVER_TRIGGERS.AGGREGATED_FINALIZATION_PROOF){
 
         if(CURRENT_CHECKPOINT_ID===''){
 
@@ -85,13 +85,13 @@ UWS.App()
     
         }
 
-        let superFinalizationProof = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'SFP:'+request.getParameter(0)).catch(_=>false)
+        let aggregatedFinalizationProof = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'AFP:'+request.getParameter(0)).catch(_=>false)
 
-        if(superFinalizationProof){
+        if(aggregatedFinalizationProof){
 
-            !response.aborted && response.end(JSON.stringify(superFinalizationProof))
+            !response.aborted && response.end(JSON.stringify(aggregatedFinalizationProof))
 
-        }else !response.aborted && response.end(JSON.stringify({error:'No SFP for a given block'}))
+        }else !response.aborted && response.end(JSON.stringify({error:'No AFP for a given block'}))
 
     }else !response.aborted && response.end(JSON.stringify({error:'Route is off'}))
 

@@ -84,7 +84,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         START_BLOCK_GRABBING_PROCESS(poolID)
 
-        SKIP_STAGE_3_MONITORING(poolID)
+        //SKIP_STAGE_3_MONITORING(poolID)
           
         
     })
