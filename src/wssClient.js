@@ -80,7 +80,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         //____________________________ START ALL THE PROCEDURES ____________________________
 
-        SEND_BLOCKS_AND_GRAB_COMMITMENTS(poolID)
+        //SEND_BLOCKS_AND_GRAB_COMMITMENTS(poolID)
 
         START_BLOCK_GRABBING_PROCESS(poolID)
 

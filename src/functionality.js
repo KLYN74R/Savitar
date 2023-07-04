@@ -45,21 +45,23 @@ export let PATH_RESOLVE=path=>__dirname+'/'+path
 
 
 const COLORS = {
+
     C:'\x1b[0m',
     T:`\u001b[38;5;23m`, // for time view
     F:'\u001b[38;5;196m', // red(error,no collapse,problems with sequence,etc.)
     S:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
     CB:'\u001b[38;5;200m',// ControllerBlock
     CD:`\u001b[38;5;50m`,// Canary died
+
 }
 
 const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
 
 
-const BLAKE3=v=>hash(v).toString('hex')
+const BLAKE3 = v => hash(v,{length:64}).toString('hex')
 
 
-const GET_BLOCK_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.events) + CONFIGS.SYMBIOTE_ID + block.index + block.prevHash)
+const GET_BLOCK_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.transactions) + global.configs.symbioteID + block.checkpoint + block.index + block.prevHash)
 
 
 const GET_VERIFIED_BLOCK = async (poolPubKey,blockIndex,currentCheckpointTempObject) => {
@@ -780,7 +782,7 @@ export let SKIP_STAGE_3_MONITORING = async poolPubKey => {
     }
 
 
-    let itsProbablySkipStage3 = await fetch(`${CONFIGS.NODE}/skip_procedure_stage_3/${poolPubKey}`).then(r=>r.json()).catch(_=>false)
+    let itsProbablySkipStage3 = await fetch(`${global.configs.node}/skip_procedure_stage_3/${poolPubKey}`).then(r=>r.json()).catch(_=>false)
 
 
     /*

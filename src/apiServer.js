@@ -13,7 +13,7 @@
  * */
 
 
-//__________________________________________ TABLE OF IMPORTS __________________________________________
+//__________________________________________ TABLE OF IMportS __________________________________________
 
 
 import {LOG,USE_TEMPORARY_DB} from './functionality.js'
@@ -25,7 +25,7 @@ import fs from 'fs'
 //___________________________________________ CONSTANTS POOL ___________________________________________
 
 
-global.CONFIGS = JSON.parse(fs.readFileSync('../configs.json'))
+global.configs = JSON.parse(fs.readFileSync('../configs.json'))
 
 
 //____________________________________________ ART OUTPUT ______________________________________________
@@ -66,7 +66,7 @@ UWS.App()
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
 
-    if(CONFIGS.SERVER_TRIGGERS.GET_AGGREGATED_FINALIZATION_PROOF){
+    if(global.configs.serverTriggers.GET_AGGREGATED_FINALIZATION_PROOF){
 
         if(CURRENT_CHECKPOINT_ID===''){
 
@@ -102,7 +102,7 @@ UWS.App()
 
     response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
 
-    if(CONFIGS.SERVER_TRIGGERS.GET_SKIP_STAGE_3){
+    if(global.configs.serverTriggers.GET_SKIP_STAGE_3){
 
         let subchain = request.getParameter(0)
 
@@ -129,8 +129,8 @@ UWS.App()
 })
 
 
-.listen(CONFIGS.SERVER_CONFIGS.INTERFACE,CONFIGS.SERVER_CONFIGS.PORT,_=>{
+.listen(global.configs.serverConfigs.interface,global.configs.serverConfigs.port,_=>{
 
-    LOG(`API server started on \u001b[38;5;196m${CONFIGS.SERVER_CONFIGS.INTERFACE}:${CONFIGS.SERVER_CONFIGS.PORT}`,'CD')
+    LOG(`API server started on \u001b[38;5;196m${global.configs.serverConfigs.interface}:${global.configs.serverConfigs.port}`,'CD')
 
 })

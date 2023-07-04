@@ -1,23 +1,23 @@
 {
-    "SYMBIOTE_ID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "NODE":"http://localhost:7332",
+    "symbioteID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "node":"http://localhost:7332",
 
-    "PASSIVE":false,
-    "PROACTIVE_SETTING":{},
+    "passive":false,
+    "proactiveSettings":{},
     
-    "SERVER_CONFIGS":{
-        "INTERFACE":"::",
-        "PORT":9393
+    "serverConfigs":{
+        "interface":"::",
+        "port":9393
     },
 
-    "SERVER_TRIGGERS":{
+    "serverTriggers":{
 
         "GET_AGGREGATED_FINALIZATION_PROOF":1,
         "GET_SKIP_STAGE_3":1
 
     },
 
-    "STUFF_DEALER":"http://localhost:7332",
-    "CHECKPOINT_TRACKER_TIMEOUT":5000
+    "stuffDealer":"http://localhost:7332",
+    "checkpointTrackerTimeout":5000
 
 }

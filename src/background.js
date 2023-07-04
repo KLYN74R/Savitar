@@ -89,11 +89,11 @@ let PREPARE_HANDLERS = async() => {
 
 let PREPARATION_TO_WORK = async poolPubKey => {
 
-    let poolOriginSubchain = await fetch(`${CONFIGS.NODE}/state/X/${poolPubKey}(POOL)_POINTER`).then(r=>r.json()).catch(_=>false)
+    let poolOriginSubchain = await fetch(`${global.configs.node}/state/X/${poolPubKey}(POOL)_POINTER`).then(r=>r.json()).catch(_=>false)
 
     if(poolOriginSubchain){
 
-        let possiblePoolData = await fetch(`${CONFIGS.NODE}/state/${poolOriginSubchain}/${poolPubKey}(POOL)_STORAGE_POOL`).then(r=>r.json()).catch(_=>console.log(_))
+        let possiblePoolData = await fetch(`${global.configs.node}/state/${poolOriginSubchain}/${poolPubKey}(POOL)_STORAGE_POOL`).then(r=>r.json()).catch(_=>console.log(_))
 
         if(possiblePoolData.wssPoolURL){
             
@@ -116,7 +116,7 @@ export const CHECKPOINT_TRACKER = async() => {
 
     if(stillNoCheckpointOrNextDay){
 
-        let latestCheckpointOrError = await fetch(CONFIGS.NODE+'/quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
+        let latestCheckpointOrError = await fetch(global.configs.node+'/quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
 
         let nextCheckpointFullID = latestCheckpointOrError?.header?.payloadHash + '#' + latestCheckpointOrError?.header?.id
         
@@ -191,7 +191,7 @@ export const CHECKPOINT_TRACKER = async() => {
     }
 
     // Repeat each N seconds
-    setTimeout(CHECKPOINT_TRACKER,CONFIGS.CHECKPOINT_TRACKER_TIMEOUT)
+    setTimeout(CHECKPOINT_TRACKER,global.configs.checkpointTrackerTimeout)
 
 
 }

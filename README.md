@@ -26,25 +26,25 @@ Savitar requires working KLY node to make queries to. Look at configs
 ```json
 
 {
-    "SYMBIOTE_ID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "NODE":"http://localhost:7331",
+    "symbioteID":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "node":"http://localhost:7331",
 
-    "PASSIVE":false,
-    "PROACTIVE_SETTING":{},
+    "passive":false,
+    "proactiveSettings":{},
     
-    "SERVER_CONFIGS":{
-        "INTERFACE":"::",
-        "PORT":9393
+    "serverConfigs":{
+        "interface":"::",
+        "port":9393
     },
 
-    "STUFF_DEALER":"http://localhost:7331",
-    "CHECKPOINT_TRACKER_TIMEOUT":5000
+    "stuffDealer":"http://localhost:7331",
+    "checkpointTrackerTimeout":5000
 
 }
 
 ```
 
-You should define appropriate <code>SYMBIOTE_ID</code>(analogy for <code>chainId</code> in EVM-compatible chains) to work on appropriate symbiote(chain). Then, using <code>NODE</code> value, Savitar grabs the latest checkpoint and based on <code>poolsMetadata</code> starts to find blocks for approprate subchains and grab commitments and finalization proofs. Savitar has proactive mode, that's why it initiates a separate thread for each subchain to get the <code>AGGREGATED_FINALIZATION_PROOF</code>
+You should define appropriate <code>symbioteID</code>(analogy for <code>chainId</code> in EVM-compatible chains) to work on appropriate symbiote(chain). Then, using <code>node</code> value, Savitar grabs the latest checkpoint and based on <code>poolsMetadata</code> starts to find blocks for approprate subchains and grab commitments and finalization proofs. Savitar has proactive mode, that's why it initiates a separate thread for each subchain to get the <code>AGGREGATED_FINALIZATION_PROOF</code>
 
 There is a screenshot of working node(N1 in local testnet with 4 nodes and 2 quorum members(pools)) and normal Savitar workflow(on the right)
 
