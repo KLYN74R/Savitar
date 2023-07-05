@@ -79,7 +79,7 @@ const GET_VERIFIED_BLOCK = async (poolPubKey,blockIndex,currentCheckpointTempObj
     
         possibleBlock
         && 
-        typeof possibleBlock.events === 'object' && typeof possibleBlock.prevHash === 'string' && typeof possibleBlock.sig === 'string' 
+        typeof possibleBlock.transactions === 'object' && typeof possibleBlock.prevHash === 'string' && typeof possibleBlock.sig === 'string' 
         &&
         possibleBlock.index === blockIndex && possibleBlock.creator === poolPubKey
         &&
@@ -211,20 +211,15 @@ let COMMITMENT_ACCEPT=async(_poolID,commitmentWithBlockID)=>{
 
     for(let blockID of blockIDs){
 
-        console.log(`${senderPubKey} HERE => `,commitmentWithBlockID)
-
         let blockHash = tempObject.CACHE.get(blockID+'_HASH')
 
         let commitmentIsOk = await bls.singleVerify(blockID+blockHash+CURRENT_CHECKPOINT_ID,senderPubKey,commitmentWithBlockID[blockID]).catch(_=>false)
 
         if(commitmentIsOk) {
 
-            console.log('OK')
-
             let commitmentsForCurrentBlock = tempObject.COMMITMENTS.get(blockID)
 
             if(!commitmentsForCurrentBlock.blockID) commitmentsForCurrentBlock.set(senderPubKey,commitmentWithBlockID[blockID])
-
 
         }
     
@@ -237,7 +232,9 @@ let FINALIZATION_PROOF_ACCEPT=async(_poolID,objectWithFinalizationProofs)=>{
 
     /*
     
-    objectWithFinalizationProofs {
+    <objectWithFinalizationProofs> is:
+    
+    {
 
         from,
 
@@ -256,25 +253,26 @@ let FINALIZATION_PROOF_ACCEPT=async(_poolID,objectWithFinalizationProofs)=>{
     if(!tempObject) return
 
 
-    console.log('Accepted ',objectWithFinalizationProofs)
-
     let senderPubkey = objectWithFinalizationProofs.from
 
 
     if(!objectWithFinalizationProofs.finalizationProofs) return
 
 
-    for(let [blockID,possibleFinalizationProof] of objectWithFinalizationProofs.finalizationProofs){
+    for(let finalizationProofForBlock of objectWithFinalizationProofs.finalizationProofs){
+
+        let [blockID,finalizationProofAsSignature] = Object.entries(finalizationProofForBlock)[0]
 
         let blockHash = tempObject.CACHE.get(blockID+'_HASH')
 
-        let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+CURRENT_CHECKPOINT_ID,senderPubkey,possibleFinalizationProof).catch(_=>false)
+        let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+CURRENT_CHECKPOINT_ID,senderPubkey,finalizationProofAsSignature).catch(_=>false)
     
+
         if(finalProofIsOk){
 
             let finalizationProofsMapping = tempObject.FINALIZATION_PROOFS.get(blockID)
 
-            finalizationProofsMapping.set(senderPubkey,possibleFinalizationProof)
+            finalizationProofsMapping.set(senderPubkey,finalizationProofAsSignature)
 
         }
     
@@ -352,13 +350,13 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
 
     //Create the mapping to get the FINALIZATION_PROOFs from the quorum members. Inner mapping contains voterValidatorPubKey => his FINALIZATION_PROOF   
     
-    FINALIZATION_PROOFS.set(blockID,new Map())
+    if(!FINALIZATION_PROOFS.has(blockID)) FINALIZATION_PROOFS.set(blockID,new Map())
 
 
 
     let finalizationProofsMapping = FINALIZATION_PROOFS.get(blockID),
 
-        aggregatedCommitments = COMMITMENTS.get(blockID), //voterValidatorPubKey => his commitment 
+        aggregatedCommitments = COMMITMENTS.get(blockID), // voterValidatorPubKey => his commitment 
 
         majority = GET_MAJORITY(currentCheckpointTempObject)
 
@@ -395,6 +393,8 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
     //_______________________ It means that we now have enough FINALIZATION_PROOFs for appropriate block. Now we can start to generate AGGREGATED_FINALIZATION_PROOF _______________________
 
 
+
+    
     if(finalizationProofsMapping.size>=majority){
 
         // In this case , aggregate FINALIZATION_PROOFs to get the AGGREGATED_FINALIZATION_PROOF and share over the network
@@ -603,15 +603,8 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         for(let [pubKey,wssConnection] of currentCheckpointTempObject.WSS_CONNECTIONS){
 
             // No sense to get the commitment if we already have
-    
-            console.log(`Going to send ${blockID} to ${pubKey}`)
 
-            if(commitmentsForCurrentBlock.has(pubKey)){
-
-                console.log(`Skip pubkey ${pubKey} for ${blockID}`)
-
-                continue
-            }
+            if(commitmentsForCurrentBlock.has(pubKey)) continue
     
             /*
             
@@ -686,18 +679,17 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
 
         currentCheckpointTempObject.CACHE.delete('CURRENT:'+blockID)
 
-        console.log('======================= HAS ==================')
-
-        console.log(aggregatedCommitments)
-
-        poolMetadata.index = nextBlockIndex
-
-        poolMetadata.hash = blockHash
-
-        poolMetadata.aggregatedFinalizationProof = {}
 
 
-        // await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,subchain,nextBlockIndex)
+        // poolMetadata.index = nextBlockIndex
+
+        // poolMetadata.hash = blockHash
+
+        // poolMetadata.aggregatedFinalizationProof = {}
+
+
+
+        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,nextBlockIndex)
 
     }
 
