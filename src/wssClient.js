@@ -2,7 +2,7 @@ import {
     
     WSS_HANDLERS,LOG,PATH_RESOLVE,
     
-    START_BLOCK_GRABBING_PROCESS,SKIP_STAGE_3_MONITORING,SEND_BLOCKS_AND_GRAB_COMMITMENTS
+    START_BLOCK_GRABBING_PROCESS,SKIP_STAGE_3_MONITORING,START_PROOFS_GRABBING
 
 } from './functionality.js'
 
@@ -80,7 +80,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         //____________________________ START ALL THE PROCEDURES ____________________________
 
-        poolID === '7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta' && SEND_BLOCKS_AND_GRAB_COMMITMENTS(poolID)
+        poolID === '7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta' && START_PROOFS_GRABBING(poolID)
 
         poolID === '7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta' && START_BLOCK_GRABBING_PROCESS(poolID)
 
