@@ -49,7 +49,7 @@ You should define appropriate <code>symbioteID</code>(analogy for <code>chainId<
 <br/>
 
 
-There are some screenshots of working environment with 4 subchains and 4 validators(3 prime pools + 1 reserve pool)
+There are some screenshots of working environment with 3 subchains and 4 validators(3 prime pools + 1 reserve pool)
 
 
 <br/><br/>
