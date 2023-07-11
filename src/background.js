@@ -1,5 +1,5 @@
 import {OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES} from './wssClient.js'
-import {LOG,USE_TEMPORARY_DB} from './functionality.js'
+import {LOG,REASSIGNMENTS_MONITORING,USE_TEMPORARY_DB} from './functionality.js'
 import fetch from 'node-fetch'
 import bls from './bls.js'
 import level from 'level'
@@ -119,7 +119,6 @@ export const CHECKPOINT_TRACKER = async() => {
         let latestCheckpointOrError = await fetch(global.configs.node+'/quorum_thread_checkpoint').then(r=>r.json()).catch(error=>error)
 
         let nextCheckpointFullID = latestCheckpointOrError?.header?.payloadHash + '#' + latestCheckpointOrError?.header?.id
-        
 
         if(latestCheckpointOrError.completed && nextCheckpointFullID !== CURRENT_CHECKPOINT_ID){
 
@@ -185,6 +184,9 @@ export const CHECKPOINT_TRACKER = async() => {
                 PREPARATION_TO_WORK(poolPubKey)
 
             )
+
+            // Also, start to monitor reassignments
+            //REASSIGNMENTS_MONITORING()
 
         }else LOG(`Can't get the latest checkpoint. Going to wait for a few and repeat`,'F')
 

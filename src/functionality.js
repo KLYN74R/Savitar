@@ -312,10 +312,10 @@ Hence we start working from COMPLETED checkpoint X where <poolsMetadata> is
 }, we have the following functions
 
 
-[+] Function to start grabbing commitment for block X with hash H for subchain S among current quorum
-[+] Function to start grabbing finalization proofs for block X with hash H for subchain S among current quorum
+[+] Function to start grabbing commitments for range of blocks for subchain S among current quorum
+[+] Function to start grabbing finalization proofs for latest block in range for subchain S among current quorum
 [+] Function to make queries for node time-by-time to update the valid checkpoint
-[+] Function to check AFK nodes and find SKIP_STAGE_3 proofs to skip subchain on this checkpoint
+[+] Function to check AFK subchain authorities
 
 
 */
@@ -778,7 +778,7 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
     
     let maxBlockID = poolPubKey+':'+finishRangeIndex
 
-    
+
     if(FINALIZATION_PROOFS.has(maxBlockID)){
 
         //This option means that we already started to share aggregated 2/3N+1 commitments and grab 2/3+1 FINALIZATION_PROOFS
@@ -799,7 +799,7 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
 
 
 
-export let SKIP_STAGE_3_MONITORING = async poolPubKey => {
+export let REASSIGNMENTS_MONITORING = async() => {
 
 
     let currentCheckpointID = CURRENT_CHECKPOINT_ID
@@ -809,62 +809,125 @@ export let SKIP_STAGE_3_MONITORING = async poolPubKey => {
     // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
     if(!currentCheckpointTempObject){
 
-        setTimeout(()=>SKIP_STAGE_3_MONITORING(poolPubKey).catch(_=>false),100)
+        setTimeout(()=>REASSIGNMENTS_MONITORING().catch(_=>false),100)
 
         return
 
     }
 
+    //In checkpoint we should already have 
 
-    let itsProbablySkipStage3 = await fetch(`${global.configs.node}/skip_procedure_stage_3/${poolPubKey}`).then(r=>r.json()).catch(_=>false)
+    let responseForTempReassignment = await fetch(`${global.configs.node}/get_data_for_temp_reassign`).then(r=>r.json()).catch(_=>false)
 
 
-    /*
+/*
         
-        The structure must be like this
+    The response from each of quorum member has the following structure:
+
+        [0] - {err:'Some error text'} - ignore, do nothing
+
+        [1] - Object with this structure
+
+            {
+
+                primePool0:{currentReservePoolIndex,firstBlockByCurrentAuthority,afpForFirstBlockByCurrentAuthority},
+
+                primePool1:{currentReservePoolIndex,firstBlockByCurrentAuthority,afpForFirstBlockByCurrentAuthority},
+
+                ...
+
+                primePoolN:{currentReservePoolIndex,firstBlockByCurrentAuthority,afpForFirstBlockByCurrentAuthority}
+
+            }
+
+
+            -----------------------------------------------[Decomposition]-----------------------------------------------
+
+
+            [0] currentReservePoolIndex - index of current authority for subchain X. To get the pubkey of subchain authority - take the QUORUM_THREAD.CHECKPOINT.REASSIGNMENT_CHAINS[<primePool>][currentReservePoolIndex]
+
+            [1] firstBlockByCurrentAuthority - default block structure with ASP for all the previous pools in a row
+
+            [2] afpForFirstBlockByCurrentAuthority - default AFP structure -> 
+
+
+                {
         
-        {subchain,index,hash,aggregatedPub,aggregatedSignature,afkVoters}
-
-    */
-
-    let overviewIsOk = 
-    
-        typeof itsProbablySkipStage3.subchain === 'string'
-        &&
-        typeof itsProbablySkipStage3.index === 'number'
-        &&
-        typeof itsProbablySkipStage3.hash === 'string'
-        &&
-        typeof itsProbablySkipStage3.aggregatedPub === 'string'
-        &&
-        typeof itsProbablySkipStage3.aggregatedSignature === 'string'
-        &&
-        Array.isArray(itsProbablySkipStage3.afkVoters)
+                    blockID:<string>,
+                    blockHash:<string>,
+                    aggregatedSignature:<string>, // blockID+hash+'FINALIZATION'+QT.CHECKPOINT.HEADER.PAYLOAD_HASH+"#"+QT.CHECKPOINT.HEADER.ID
+                    aggregatedPub:<string>,
+                    afkVoters:[<string>,...]
+        
+                }
 
 
+            -----------------------------------------------[What to do next?]-----------------------------------------------
+        
+            Compare the <currentReservePoolIndex> with our local pointer tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePool].currentAuthority
 
-    if(overviewIsOk){
+                In case our local version has bigger index - ignore
+
+                In case proposed version has bigger index it's a clear signal that some of reassignments occured and we need to update our local data
+
+                For this:
+
+                    0) Verify the first block in this epoch(checkpoint) by current autority - make sure block.extraData contains all ASPs for previous reserve pools(+ for prime pool) in a row
+
+                    1) Verify that this block was approved by quorum majority(2/3N+1) by checking the <afpForFirstBlockByCurrentAuthority>
+
+
+                If all the verification steps is OK - add to some cache
+
+            -----------------------------------------------[After the verification of all the responses?]-----------------------------------------------
+
+            Start to build the temporary reassignment chains
+
+*/
+
+
+    if(responseForTempReassignment){
 
         // Check the signature
+
+        for(let [primePoolPubKey,reassignMetadata] of Object.entries(responseForTempReassignment)){
+
+            if(typeof primePoolPubKey === 'string' && typeof reassignMetadata === 'object'){
+
+                let {currentReservePoolIndex,firstBlockByCurrentAuthority,afpForFirstBlockByCurrentAuthority} = reassignMetadata
+
+                if(typeof currentReservePoolIndex === 'number' && typeof firstBlockByCurrentAuthority === 'object' && typeof afpForFirstBlockByCurrentAuthority==='object'){
+                    
+                    let localPointer = tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePoolPubKey].currentAuthority
+
+                    let firstBlockIndexInNewCheckpoint = poolsMetadataFromVtCheckpoint[firstBlockByCurrentAuthority.creator].index+1
+
+                }
+
+            }
+
+        }
+
+
 
         let {index,hash} = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,aggregatedFinalizationProof(?),url(?)}
 
         let data =`SKIP_STAGE_3:${poolPubKey}:${index}:${hash}:${currentCheckpointID}`
 
-        let aggregatedSignatureIsOk = await bls.singleVerify(data,itsProbablySkipStage3.aggregatedPub,itsProbablySkipStage3.aggregatedSignature).catch(_=>false)
+        let aggregatedSignatureIsOk = await bls.singleVerify(data,responseForTempReassignment.aggregatedPub,responseForTempReassignment.aggregatedSignature).catch(_=>false)
 
-        let rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablySkipStage3.aggregatedPub,...itsProbablySkipStage3.afkVoters])
+        let rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([responseForTempReassignment.aggregatedPub,...responseForTempReassignment.afkVoters])
 
         let quorumSize = currentCheckpointTempObject.CHECKPOINT.quorum.length
 
         let majority = GET_MAJORITY(currentCheckpointTempObject)
 
-        let majorityVotedForThis = quorumSize-itsProbablySkipStage3.afkVoters.length >= majority
+        let majorityVotedForThis = quorumSize-responseForTempReassignment.afkVoters.length >= majority
 
 
         if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
 
-            let result = await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SKIP_STAGE_3:'+poolPubKey,itsProbablySkipStage3).catch(_=>false)
+            let result = await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SKIP_STAGE_3:'+poolPubKey,responseForTempReassignment).catch(_=>false)
 
             if(result!==false){
 
@@ -880,7 +943,7 @@ export let SKIP_STAGE_3_MONITORING = async poolPubKey => {
 
 
     // Repeat the same procedure
-    setTimeout(()=>SKIP_STAGE_3_MONITORING(poolPubKey).catch(_=>false),7000)
+    setTimeout(()=>REASSIGNMENTS_MONITORING(poolPubKey).catch(_=>false),7000)
 
 }
 

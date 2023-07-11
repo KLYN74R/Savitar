@@ -98,36 +98,6 @@ UWS.App()
 
 })
 
-.get('/skip_procedure_stage_3/:SUBCHAIN',async (response,request) => {
-
-    response.onAborted(()=>response.aborted=true).writeHeader('Access-Control-Allow-Origin','*')
-
-    if(global.configs.serverTriggers.GET_SKIP_STAGE_3){
-
-        let subchain = request.getParameter(0)
-
-        let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
-    
-        if(CURRENT_CHECKPOINT_ID==='' || !tempObject){
-
-            !response.aborted && response.end(JSON.stringify({error:'Checkpoint is not ready'}))
-            
-            return
-        }
-    
-
-        let skipStage3Proof = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'SKIP_STAGE_3:'+subchain).catch(_=>false)
-    
-    
-        if(skipStage3Proof) !response.aborted && response.end(JSON.stringify(skipStage3Proof))
-    
-        else !response.aborted && response.end(JSON.stringify({error:'No SKIP_STAGE_3 for given subchain'}))
-    
-    
-    } else !response.aborted && response.end(JSON.stringify({error:'Route is off'}))
-    
-})
-
 
 .listen(global.configs.serverConfigs.interface,global.configs.serverConfigs.port,_=>{
 

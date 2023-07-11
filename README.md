@@ -46,9 +46,23 @@ Savitar requires working KLY node to make queries to. Look at configs
 
 You should define appropriate <code>symbioteID</code>(analogy for <code>chainId</code> in EVM-compatible chains) to work on appropriate symbiote(chain). Then, using <code>node</code> value, Savitar grabs the latest checkpoint and based on <code>poolsMetadata</code> starts to find blocks for approprate subchains and grab commitments and finalization proofs. Savitar has proactive mode, that's why it initiates a separate thread for each subchain to get the <code>AGGREGATED_FINALIZATION_PROOF</code>
 
-There is a screenshot of working node(N1 in local testnet with 4 nodes and 2 quorum members(pools)) and normal Savitar workflow(on the right)
+<br/>
 
-<img src="./images/savitar_work.png">
+
+There are some screenshots of working environment with 4 subchains and 4 validators(3 prime pools + 1 reserve pool)
+
+
+<br/><br/>
+
+### Initialization:
+
+<img src="./images/savitar_work_1.jpg">
+
+<br/><br/>
+
+### Working process(proofs grabbing):
+
+<img src="./images/savitar_work_2.jpg">
 
 
 ## <b>API</b>
