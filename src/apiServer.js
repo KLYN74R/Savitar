@@ -101,6 +101,6 @@ UWS.App()
 
 .listen(global.configs.serverConfigs.interface,global.configs.serverConfigs.port,_=>{
 
-    LOG(`API server started on \u001b[38;5;196m${global.configs.serverConfigs.interface}:${global.configs.serverConfigs.port}`,'CD')
+    LOG(`API server started on \u001b[38;5;196m${global.configs.serverConfigs.interface}:${global.configs.serverConfigs.port}`,'INFO')
 
 })

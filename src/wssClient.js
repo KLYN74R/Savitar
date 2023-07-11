@@ -14,7 +14,13 @@ import fs from 'fs'
 import {SocksProxyAgent} from 'socks-proxy-agent'
 
 
-
+/**
+ * 
+ * @param {*} poolID 
+ * @param {*} wssURL 
+ * @param {*} primePoolsArray 
+ * @param {Array.<string>} quorum 
+ */
 export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
     let WebSocketClient = WS.client
@@ -63,13 +69,13 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
     
         connection.on('close',(code,description) =>
         
-            LOG(`Closed connection with ${connection.remoteAddress} => ${code}      |       ${description}`,'F')
+            LOG(`Closed connection with ${connection.remoteAddress} => ${code}      |       ${description}`,'FAIL')
         
         )
     
         connection.on('error',error=>
 
-            LOG(`Error occured with ${connection.remoteAddress} => ${error}`,'F')
+            LOG(`Error occured with ${connection.remoteAddress} => ${error}`,'FAIL')
 
         )
 
@@ -80,17 +86,24 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         //____________________________ START ALL THE PROCEDURES ____________________________
 
-        poolID === '7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta' && START_PROOFS_GRABBING(poolID)
+        if(!currentTempObject.POOLS_METADATA.get(poolID).isReserve && (global.configs.prefferedSubchains === '*' || global.configs.prefferedSubchains.includes(poolID))){
 
-        poolID === '7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta' && START_BLOCK_GRABBING_PROCESS(poolID)
+            START_PROOFS_GRABBING(poolID)
 
+            START_BLOCK_GRABBING_PROCESS(poolID)
+
+        }
         
     })
 
 
     client.on('connectFailed',error=>{
 
-        LOG(`Failed to connect to ${wssURL} => ${error}`,'CD')
+        LOG(`Failed to connect to \u001b[38;5;154m${wssURL} \u001b[38;5;50m=> \u001b[38;5;196m${error}`,'INFO')
+
+        // Repeat to connect after a while
+
+        setTimeout(()=>OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES(poolID,wssURL),3000)
 
     })
 

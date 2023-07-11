@@ -28,11 +28,11 @@ export let USE_TEMPORARY_DB=async(operationType,dbReference,key,value)=>{
 /**
  * 
  * @param {*} msg 
- * @param {('T'|'F'|'S'|'CB'|'CD')} msgColor 
+ * @param {('T'|'F'|'S'|'CD')} msgColor 
  */
 export const LOG=(msg,msgColor)=>{
 
-    console.log(COLORS.T,`[${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}]\u001b[38;5;99m(pid:${process.pid})`,COLORS[msgColor],msg,COLORS.C)
+    console.log(COLORS.TIME_VIEW,`[${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}]\u001b[38;5;99m(pid:${process.pid})`,COLORS[msgColor],msg,COLORS.CLEAR)
 
 }
 
@@ -46,62 +46,19 @@ export let PATH_RESOLVE=path=>__dirname+'/'+path
 
 const COLORS = {
 
-    C:'\x1b[0m',
-    T:`\u001b[38;5;23m`, // for time view
-    F:'\u001b[38;5;196m', // red(error,no collapse,problems with sequence,etc.)
-    S:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
-    CB:'\u001b[38;5;200m',// ControllerBlock
-    CD:`\u001b[38;5;50m`,// Canary died
+    CLEAR:'\x1b[0m',
+    TIME_VIEW:`\u001b[38;5;23m`,
+    FAIL:'\u001b[38;5;196m', // red(error,no collapse,problems with sequence,etc.)
+    SUCCESS:'\x1b[32;1m', // green(new block, exported something, something important, etc.)
+    INFO:`\u001b[38;5;50m`,// Canary died
 
 }
-
-const BLS_VERIFY = async(data,pubKey,signa) => bls.singleVerify(data,pubKey,signa)
 
 
 const BLAKE3 = v => hash(v,{length:64}).toString('hex')
 
 
 const GET_BLOCK_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.transactions) + global.configs.symbioteID + block.checkpoint + block.index + block.prevHash)
-
-
-const GET_VERIFIED_BLOCK = async (poolPubKey,blockIndex,currentCheckpointTempObject) => {
-
-    let blockID = poolPubKey+':'+blockIndex
-
-    let poolMetadata = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey)
-
-    //________________________________ 0. Get the block from pool authority by given URL ________________________________
-
-    let possibleBlock = await fetch(poolMetadata.url+`/block/`+blockID).then(r=>r.json()).catch(_=>false)
-
-
-    let overviewIsOk = 
-    
-        possibleBlock
-        && 
-        typeof possibleBlock.transactions === 'object' && typeof possibleBlock.prevHash === 'string' && typeof possibleBlock.sig === 'string' 
-        &&
-        possibleBlock.index === blockIndex && possibleBlock.creator === poolPubKey
-        &&
-        possibleBlock.prevHash === poolMetadata.hash
-        &&
-        await BLS_VERIFY(GET_BLOCK_HASH(possibleBlock),poolPubKey,possibleBlock.sig)
-
-
-    if(overviewIsOk) {
-
-        // Store to temporary db
-
-        await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID,possibleBlock).catch(_=>{})
-
-
-        return possibleBlock
-
-    } 
-
-}
-
-
 
 
 const GET_MAJORITY = currentCheckpointTempObject => {
@@ -161,9 +118,10 @@ let BLOCKS_ACCEPT = async (poolID,blockOrError) => {
 
     }
 
+
     let blockID = poolID+":"+blockOrError.index
 
-    LOG(`Received block \u001b[38;5;50m${blockID}`,'S')
+    LOG(`Received block \u001b[38;5;50m${blockID}`,'SUCCESS')
     
     await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK:'+blockID,blockOrError).catch(_=>{})
 
@@ -186,7 +144,7 @@ let BLOCKS_ACCEPT = async (poolID,blockOrError) => {
 
     }
 
-    let appropriateConnection = tempObject.WSS_CONNECTIONS.get(blockOrError.creator)
+    let appropriateConnection = tempObject.WSS_CONNECTIONS.get(poolID)
 
     appropriateConnection.sendUTF(JSON.stringify(nextData))
 
@@ -218,7 +176,7 @@ let COMMITMENT_ACCEPT=async(_poolID,commitmentWithBlockID)=>{
 
             let commitmentsForCurrentBlock = tempObject.COMMITMENTS.get(blockID)
 
-            if(!commitmentsForCurrentBlock.blockID) commitmentsForCurrentBlock.set(senderPubKey,commitmentWithBlockID[blockID])
+            if(commitmentsForCurrentBlock && !commitmentsForCurrentBlock.blockID) commitmentsForCurrentBlock.set(senderPubKey,commitmentWithBlockID[blockID])
 
         }
     
@@ -325,18 +283,12 @@ Hence we start working from COMPLETED checkpoint X where <poolsMetadata> is
 
 
 
-let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckpointTempObject,poolPubKey,startRangeIndex,finishRangeIndex) => {
+let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckpointTempObject,poolPubKey,finishRangeIndex) => {
 
 
     let blockID = poolPubKey+':'+finishRangeIndex
 
-    let block = await USE_TEMPORARY_DB('get',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID)
-    
-        .catch(
-        
-            _ => GET_VERIFIED_BLOCK(poolPubKey,finishRangeIndex,currentCheckpointTempObject)
-        
-        )
+    let block = await USE_TEMPORARY_DB('get',currentCheckpointTempObject.DATABASE,'BLOCK:'+blockID).catch(_ => false)
 
     if(!block){
 
@@ -378,11 +330,11 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
         })
 
 
-        for(let [pubKey,wssConnection] of currentCheckpointTempObject.WSS_CONNECTIONS){
+        for(let [quorumMemberPoolPubKey,wssConnection] of currentCheckpointTempObject.WSS_CONNECTIONS){
 
-            // No sense to get the commitment if we already have
-    
-            if(finalizationProofsMapping.has(pubKey)) continue
+            // No sense to get the finalizationProof if we already have
+            // Also, no sense to ask the pool not from quorum
+            if(finalizationProofsMapping.has(quorumMemberPoolPubKey) || !currentCheckpointTempObject.CHECKPOINT.quorum.includes(quorumMemberPoolPubKey)) continue
 
             wssConnection.sendUTF(dataToSendViaWebsocketConnection)
     
@@ -472,90 +424,20 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
         currentCheckpointTempObject.CACHE.delete('CURRENT:'+poolPubKey)
 
 
-        LOG(`Received AFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${hashOfLatestBlockInRange})`,'S')
+        LOG(`Received AFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${hashOfLatestBlockInRange})`,'SUCCESS')
 
         // To keep progress
         await USE_TEMPORARY_DB('put',DATABASE,poolPubKey,poolMetadata).catch(_=>false)
 
+        setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),0)
+
+        return
 
     }
     
     setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),1000)
 
 }
-
-
-
-
-let TRY_TO_GET_AFP=async(nextBlockIndex,blockHash,poolPubKey,currentCheckpointID,currentCheckpointTempObject)=>{
-
-    let poolMetadata = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey)
-
-    let blockID = poolPubKey+':'+nextBlockIndex
-
-    let itsProbablyAggregatedFinalizationProof = await fetch(`${poolMetadata.url}/aggregated_finalization_proof/${blockID}`).then(r=>r.json()).catch(_=>false)
-
-
-
-    
-    if(itsProbablyAggregatedFinalizationProof){
-
-       let  generalAndTypeCheck =   itsProbablyAggregatedFinalizationProof
-                                    &&
-                                    typeof itsProbablyAggregatedFinalizationProof.aggregatedPub === 'string'
-                                    &&
-                                    typeof itsProbablyAggregatedFinalizationProof.aggregatedSignature === 'string'
-                                    &&
-                                    typeof itsProbablyAggregatedFinalizationProof.blockID === 'string'
-                                    &&
-                                    typeof itsProbablyAggregatedFinalizationProof.blockHash === 'string'
-                                    &&
-                                    Array.isArray(itsProbablyAggregatedFinalizationProof.afkVoters)
-
-
-        if(generalAndTypeCheck){
-
-            //Verify it before return
-
-            let aggregatedSignatureIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+currentCheckpointID,itsProbablyAggregatedFinalizationProof.aggregatedPub,itsProbablyAggregatedFinalizationProof.aggregatedSignature).catch(_=>false),
-
-                rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([itsProbablyAggregatedFinalizationProof.aggregatedPub,...itsProbablyAggregatedFinalizationProof.afkVoters]),
-
-                quorumSize = currentCheckpointTempObject.CHECKPOINT.quorum.length,
-
-                majority = GET_MAJORITY(currentCheckpointTempObject)
-
-
-            let majorityVotedForThis = quorumSize-itsProbablyAggregatedFinalizationProof.afkVoters.length >= majority
-
-
-            if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
-
-                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'AFP:'+blockID,itsProbablyAggregatedFinalizationProof).catch(_=>false)
-
-                // Repeat procedure for the next block and store the progress
-        
-                poolMetadata.index = nextBlockIndex
-        
-                poolMetadata.hash = blockHash
-        
-                poolMetadata.aggregatedFinalizationProof = itsProbablyAggregatedFinalizationProof
-                
-                // To keep progress
-                await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,poolPubKey,poolMetadata).catch(_=>false)
-
-                LOG(`\u001b[38;5;129m[ϟ](via instant) \x1b[32;1mReceived AFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${blockHash})`,'S')
-
-                return true
-
-            }
-    
-        }
-        
-    }
-
-}
-
 
 
 
@@ -627,11 +509,11 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         })
 
 
-        for(let [pubKey,wssConnection] of currentCheckpointTempObject.WSS_CONNECTIONS){
+        for(let [quorumMemberPoolPubKey,wssConnection] of currentCheckpointTempObject.WSS_CONNECTIONS){
 
-            // No sense to get the commitment if we already have
-
-            if(commitmentsForBlockRange.has(pubKey)) continue
+            // No sense to get the commitment if we already have from this quorum member
+            // Also, no sense to get commitment from pool that is not in quorum
+            if(commitmentsForBlockRange.has(quorumMemberPoolPubKey) || !currentCheckpointTempObject.CHECKPOINT.quorum.includes(quorumMemberPoolPubKey)) continue
     
             /*
             
@@ -702,10 +584,7 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         //Set the aggregated version of commitments to start to grab FINALIZATION_PROOFS
         commitmentsMapping.set(finishBlockID,aggregatedCommitments)
 
-        let poolMetadata = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey)
-
-
-        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,startRangeIndex,finishRangeIndex)
+        await RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,finishRangeIndex)
 
 
 
@@ -755,11 +634,11 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
     }
 
 
-    let handlerForSubchain = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,aggregatedFinalizationProof(?),url(?)}
+    let handlerForPool = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,aggregatedFinalizationProof(?),url(?)}
 
     let {FINALIZATION_PROOFS} = currentCheckpointTempObject
 
-    let startRangeIndex = handlerForSubchain.index
+    let startRangeIndex = handlerForPool.index
 
     let finishRangeIndex
     
@@ -783,7 +662,7 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
 
         //This option means that we already started to share aggregated 2/3N+1 commitments and grab 2/3+1 FINALIZATION_PROOFS
         
-        RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,startRangeIndex,finishRangeIndex)
+        RUN_FINALIZATION_PROOFS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,finishRangeIndex)
 
     }else{
 
@@ -815,7 +694,9 @@ export let REASSIGNMENTS_MONITORING = async() => {
 
     }
 
-    //In checkpoint we should already have 
+    //In checkpoint we should already have reassignment chains
+
+    let reassignmentChainsInCheckpoint = tempObject.CHECKPOINT.reassignmentChains // primePoolPubKey => [reservePool0,reservePool1,...,reservePool2]
 
     let responseForTempReassignment = await fetch(`${global.configs.node}/get_data_for_temp_reassign`).then(r=>r.json()).catch(_=>false)
 
@@ -841,103 +722,49 @@ export let REASSIGNMENTS_MONITORING = async() => {
             }
 
 
-            -----------------------------------------------[Decomposition]-----------------------------------------------
+    -----------------------------------------------[Decomposition]-----------------------------------------------
 
 
-            [0] currentReservePoolIndex - index of current authority for subchain X. To get the pubkey of subchain authority - take the QUORUM_THREAD.CHECKPOINT.REASSIGNMENT_CHAINS[<primePool>][currentReservePoolIndex]
+        [0] currentReservePoolIndex - index of current authority for subchain X. To get the pubkey of subchain authority - take the QUORUM_THREAD.CHECKPOINT.REASSIGNMENT_CHAINS[<primePool>][currentReservePoolIndex]
 
-            [1] firstBlockByCurrentAuthority - default block structure with ASP for all the previous pools in a row
+        [1] firstBlockByCurrentAuthority - default block structure with ASP for all the previous pools in a row
 
-            [2] afpForFirstBlockByCurrentAuthority - default AFP structure -> 
+        [2] afpForFirstBlockByCurrentAuthority - default AFP structure -> 
 
 
-                {
+            {
         
-                    blockID:<string>,
-                    blockHash:<string>,
-                    aggregatedSignature:<string>, // blockID+hash+'FINALIZATION'+QT.CHECKPOINT.HEADER.PAYLOAD_HASH+"#"+QT.CHECKPOINT.HEADER.ID
-                    aggregatedPub:<string>,
-                    afkVoters:[<string>,...]
+                blockID:<string>,
+                blockHash:<string>,
+                aggregatedSignature:<string>, // blockID+hash+'FINALIZATION'+QT.CHECKPOINT.HEADER.PAYLOAD_HASH+"#"+QT.CHECKPOINT.HEADER.ID
+                aggregatedPub:<string>,
+                afkVoters:[<string>,...]
         
-                }
+            }
 
 
-            -----------------------------------------------[What to do next?]-----------------------------------------------
-        
-            Compare the <currentReservePoolIndex> with our local pointer tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePool].currentAuthority
-
-                In case our local version has bigger index - ignore
-
-                In case proposed version has bigger index it's a clear signal that some of reassignments occured and we need to update our local data
-
-                For this:
-
-                    0) Verify the first block in this epoch(checkpoint) by current autority - make sure block.extraData contains all ASPs for previous reserve pools(+ for prime pool) in a row
-
-                    1) Verify that this block was approved by quorum majority(2/3N+1) by checking the <afpForFirstBlockByCurrentAuthority>
-
-
-                If all the verification steps is OK - add to some cache
-
-            -----------------------------------------------[After the verification of all the responses?]-----------------------------------------------
-
-            Start to build the temporary reassignment chains
+    -----------------------------------------------[What to do next?]-----------------------------------------------
+    
+    In case <currentReservePoolIndex> is not equal -1 - it's signal that reassignment was occured and we should stop grab blocks created by skipped pool
+    We should set new authority for subchain and grab blocks by new pool
 
 */
 
 
     if(responseForTempReassignment){
 
-        // Check the signature
-
         for(let [primePoolPubKey,reassignMetadata] of Object.entries(responseForTempReassignment)){
 
-            if(typeof primePoolPubKey === 'string' && typeof reassignMetadata === 'object'){
+            if(typeof primePoolPubKey === 'string' && typeof reassignMetadata === 'object' && typeof reassignMetadata === 'number'){
 
-                let {currentReservePoolIndex,firstBlockByCurrentAuthority,afpForFirstBlockByCurrentAuthority} = reassignMetadata
+                let localPointer = tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePoolPubKey].currentAuthority
 
-                if(typeof currentReservePoolIndex === 'number' && typeof firstBlockByCurrentAuthority === 'object' && typeof afpForFirstBlockByCurrentAuthority==='object'){
-                    
-                    let localPointer = tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePoolPubKey].currentAuthority
-
-                    let firstBlockIndexInNewCheckpoint = poolsMetadataFromVtCheckpoint[firstBlockByCurrentAuthority.creator].index+1
-
-                }
+                let firstBlockIndexInNewCheckpoint = poolsMetadataFromVtCheckpoint[firstBlockByCurrentAuthority.creator].index+1
 
             }
 
         }
 
-
-
-        let {index,hash} = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,aggregatedFinalizationProof(?),url(?)}
-
-        let data =`SKIP_STAGE_3:${poolPubKey}:${index}:${hash}:${currentCheckpointID}`
-
-        let aggregatedSignatureIsOk = await bls.singleVerify(data,responseForTempReassignment.aggregatedPub,responseForTempReassignment.aggregatedSignature).catch(_=>false)
-
-        let rootQuorumKeyIsEqualToProposed = currentCheckpointTempObject.CACHE.get('ROOTPUB') === bls.aggregatePublicKeys([responseForTempReassignment.aggregatedPub,...responseForTempReassignment.afkVoters])
-
-        let quorumSize = currentCheckpointTempObject.CHECKPOINT.quorum.length
-
-        let majority = GET_MAJORITY(currentCheckpointTempObject)
-
-        let majorityVotedForThis = quorumSize-responseForTempReassignment.afkVoters.length >= majority
-
-
-        if(aggregatedSignatureIsOk && rootQuorumKeyIsEqualToProposed && majorityVotedForThis){
-
-            let result = await USE_TEMPORARY_DB('put',currentCheckpointTempObject.DATABASE,'SKIP_STAGE_3:'+poolPubKey,responseForTempReassignment).catch(_=>false)
-
-            if(result!==false){
-
-                LOG(`Seems that subchain \u001b[38;5;50m${poolPubKey}\u001b[38;5;196m was stopped on \u001b[38;5;50m${index}\u001b[38;5;196m block \u001b[38;5;219m(hash:${hash})`,'F')
-
-                return
-
-            }
-        
-        }
 
     }
 
