@@ -16,7 +16,7 @@
 
     },
     
-    "prefferedSubchains":["7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta"],
+    "prefferedSubchains":"*",
 
     "stuffDealer":"http://localhost:7332",
     "checkpointTrackerTimeout":5000

@@ -68,14 +68,14 @@ UWS.App()
 
     if(global.configs.serverTriggers.GET_AGGREGATED_FINALIZATION_PROOF){
 
-        if(CURRENT_CHECKPOINT_ID===''){
+        if(global.CURRENT_CHECKPOINT_FULL_ID===''){
 
             !response.aborted && response.end(JSON.stringify({error:'Checkpoint is not ready'}))
 
             return
         }
 
-        let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+        let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
 
         if(!tempObject){
             

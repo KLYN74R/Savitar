@@ -1,6 +1,8 @@
 import {hash} from 'blake3-wasm'
 import fetch from 'node-fetch'
 import bls from './bls.js'
+import { OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES } from './wssClient.js'
+import { GET_WSS_ADDRESS_AND_OPEN_CONNECTION } from './background.js'
 
 
 
@@ -88,16 +90,15 @@ _________________________________________ WEBSOCKET HANDLERS ___________________
 */
 
 
-let BLOCKS_ACCEPT = async (poolID,blockOrError) => {
+let BLOCKS_ACCEPT = async (poolID,blocksArrayOrError) => {
 
-
-    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
 
     if(!tempObject) return
 
 
 
-    if(blockOrError.reason){
+    if(blocksArrayOrError.reason){
 
         let nextIndex = tempObject.CACHE.get('BLOCK_POINTER:'+poolID)
 
@@ -116,37 +117,49 @@ let BLOCKS_ACCEPT = async (poolID,blockOrError) => {
 
         return
 
+    }else if(Array.isArray(blocksArrayOrError)){
+
+        let dbPromises = []
+
+        let nextIndex
+
+        for(let block of blocksArrayOrError){
+
+            let blockID = poolID+":"+block.index
+
+            LOG(`Received block \u001b[38;5;50m${blockID}`,'SUCCESS')
+
+            dbPromises.push(USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK:'+blockID,block).catch(_=>false))        
+        
+            nextIndex = tempObject.CACHE.get('BLOCK_POINTER:'+poolID)+1
+        
+            tempObject.CACHE.set('BLOCK_POINTER:'+poolID,nextIndex)
+        
+        
+        }
+
+
+        await Promise.all(dbPromises)
+
+        await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK_POINTER:'+poolID,nextIndex).catch(_=>{})
+
+
+        // Find next block
+        
+        let nextBlockID = poolID+':'+nextIndex
+        
+        let nextData = {
+        
+            route:'get_block',
+            payload:nextBlockID
+        
+        }
+
+        let appropriateConnection = tempObject.WSS_CONNECTIONS.get(poolID)
+        
+        appropriateConnection.sendUTF(JSON.stringify(nextData))
+
     }
-
-
-    let blockID = poolID+":"+blockOrError.index
-
-    LOG(`Received block \u001b[38;5;50m${blockID}`,'SUCCESS')
-    
-    await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK:'+blockID,blockOrError).catch(_=>{})
-
-
-    let nextIndex = tempObject.CACHE.get('BLOCK_POINTER:'+poolID)+1
-
-    tempObject.CACHE.set('BLOCK_POINTER:'+poolID,nextIndex)
-
-    await USE_TEMPORARY_DB('put',tempObject.DATABASE,'BLOCK_POINTER:'+poolID,nextIndex).catch(_=>{})
-
-
-    //Find next block
-
-    let nextBlockID = poolID+':'+nextIndex
-
-    let nextData = {
-
-        route:'get_block',
-        payload:nextBlockID
-
-    }
-
-    let appropriateConnection = tempObject.WSS_CONNECTIONS.get(poolID)
-
-    appropriateConnection.sendUTF(JSON.stringify(nextData))
 
 }
 
@@ -155,7 +168,7 @@ let COMMITMENT_ACCEPT=async(_poolID,commitmentWithBlockID)=>{
 
     // commitmentWithBlockID => {blockID:commitment,blockID,commitment} and FROM property to know the pubkey of sender(member of quorum)
 
-    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
 
     if(!tempObject) return
 
@@ -170,7 +183,7 @@ let COMMITMENT_ACCEPT=async(_poolID,commitmentWithBlockID)=>{
 
         let blockHash = tempObject.CACHE.get(blockID+'_HASH') || GET_BLOCK_HASH(await USE_TEMPORARY_DB('get',tempObject.DATABASE,'BLOCK:'+blockID).catch(_=>false))
 
-        let commitmentIsOk = await bls.singleVerify(blockID+blockHash+CURRENT_CHECKPOINT_ID,senderPubKey,commitmentWithBlockID[blockID]).catch(_=>false)
+        let commitmentIsOk = await bls.singleVerify(blockID+blockHash+global.CURRENT_CHECKPOINT_FULL_ID,senderPubKey,commitmentWithBlockID[blockID]).catch(_=>false)
 
         if(commitmentIsOk) {
 
@@ -205,7 +218,7 @@ let FINALIZATION_PROOF_ACCEPT=async(_poolID,objectWithFinalizationProofs)=>{
     
     */
 
-    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
 
     if(!tempObject) return
 
@@ -222,7 +235,7 @@ let FINALIZATION_PROOF_ACCEPT=async(_poolID,objectWithFinalizationProofs)=>{
 
         let blockHash = tempObject.CACHE.get(blockID+'_HASH') || GET_BLOCK_HASH(await USE_TEMPORARY_DB('get',tempObject.DATABASE,'BLOCK:'+blockID).catch(_=>false))
 
-        let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+CURRENT_CHECKPOINT_ID,senderPubkey,finalizationProofAsSignature).catch(_=>false)
+        let finalProofIsOk = await bls.singleVerify(blockID+blockHash+'FINALIZATION'+global.CURRENT_CHECKPOINT_FULL_ID,senderPubkey,finalizationProofAsSignature).catch(_=>false)
     
 
         if(finalProofIsOk){
@@ -418,10 +431,12 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
 
 
         COMMITMENTS.delete(blockID)
+        
         FINALIZATION_PROOFS.delete(blockID)
         
         currentCheckpointTempObject.CACHE.delete(blockID+'_HASH')
-        currentCheckpointTempObject.CACHE.delete('CURRENT:'+poolPubKey)
+        
+        currentCheckpointTempObject.CACHE.delete('CURRENT_SESSION_INDEX:'+poolPubKey)
 
 
         LOG(`Received AFP for block \u001b[38;5;50m${blockID} \u001b[38;5;219m(hash:${hashOfLatestBlockInRange})`,'SUCCESS')
@@ -496,8 +511,6 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
         commitmentsForBlockRange = commitmentsMapping.get(finishBlockID)
 
     }else commitmentsForBlockRange = commitmentsMapping.get(finishBlockID)
-
-
     
     if(commitmentsForBlockRange.size < majority){
 
@@ -514,20 +527,22 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
             // No sense to get the commitment if we already have from this quorum member
             // Also, no sense to get commitment from pool that is not in quorum
             if(commitmentsForBlockRange.has(quorumMemberPoolPubKey) || !currentCheckpointTempObject.CHECKPOINT.quorum.includes(quorumMemberPoolPubKey)) continue
-    
+        
             /*
-            
-            0. Share the block via POST /block and get the commitment as the answer
-       
-            1. After getting 2/3N+1 commitments, aggregate it and call POST /finalization to send the aggregated commitment to the quorum members and get the 
+                
+                TODO: Fix description
     
-            2. Get the 2/3N+1 FINALIZATION_PROOFs, aggregate and call POST /super_finalization to share the AGGREGATED_FINALIZATION_PROOFS over the symbiote
-    
+                0. Share the blocks via POST /block and get the commitment as the answer
+        
+                1. After getting 2/3N+1 commitments, aggregate it and call POST /finalization to send the aggregated commitment to the quorum members and get the 
+        
+                2. Get the 2/3N+1 FINALIZATION_PROOFs, aggregate and call POST /super_finalization to share the AGGREGATED_FINALIZATION_PROOFS over the symbiote
+        
             */
-
+    
             wssConnection.sendUTF(dataToSendViaWebsocketConnection)
     
-        }        
+        }
 
     }
 
@@ -588,7 +603,7 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
 
 
 
-    }else setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),1000)
+    }else setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),7000)
 
 }
 
@@ -609,9 +624,9 @@ Run a single async thread for each of subchain where we should__________________
 export let START_PROOFS_GRABBING = async poolPubKey => {
 
     
-    let currentCheckpointID = CURRENT_CHECKPOINT_ID
+    let currentCheckpointID = global.CURRENT_CHECKPOINT_FULL_ID
 
-    let currentCheckpointTempObject = TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
+    let currentCheckpointTempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
 
 
 
@@ -634,7 +649,7 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
     }
 
 
-    let handlerForPool = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,aggregatedFinalizationProof(?),url(?)}
+    let handlerForPool = currentCheckpointTempObject.POOLS_METADATA.get(poolPubKey) // => {index,hash,isReserve,currentAuthority(?),aggregatedFinalizationProof,url}
 
     let {FINALIZATION_PROOFS} = currentCheckpointTempObject
 
@@ -642,15 +657,15 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
 
     let finishRangeIndex
     
-    if(currentCheckpointTempObject.CACHE.has('CURRENT:'+poolPubKey)) finishRangeIndex = currentCheckpointTempObject.CACHE.get('CURRENT:'+poolPubKey)
+    if(currentCheckpointTempObject.CACHE.has('CURRENT_SESSION_INDEX:'+poolPubKey)) finishRangeIndex = currentCheckpointTempObject.CACHE.get('CURRENT_SESSION_INDEX:'+poolPubKey)
 
     else {
 
         let nextIndexToAsk = currentCheckpointTempObject.CACHE.get('BLOCK_POINTER:'+poolPubKey)
 
-        finishRangeIndex = nextIndexToAsk !==0 ? nextIndexToAsk-1 : 0
+        finishRangeIndex = nextIndexToAsk !== 0 ? nextIndexToAsk-1 : 0
 
-        currentCheckpointTempObject.CACHE.set('CURRENT:'+poolPubKey,finishRangeIndex)
+        currentCheckpointTempObject.CACHE.set('CURRENT_SESSION_INDEX:'+poolPubKey,finishRangeIndex)
 
     }
 
@@ -671,6 +686,7 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
 
         RUN_COMMITMENTS_GRABBING(currentCheckpointID,currentCheckpointTempObject,poolPubKey,startRangeIndex,finishRangeIndex)
 
+
     }
 
 }
@@ -681,9 +697,9 @@ export let START_PROOFS_GRABBING = async poolPubKey => {
 export let REASSIGNMENTS_MONITORING = async() => {
 
 
-    let currentCheckpointID = CURRENT_CHECKPOINT_ID
+    let currentCheckpointID = global.CURRENT_CHECKPOINT_FULL_ID
 
-    let currentCheckpointTempObject = TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
+    let currentCheckpointTempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(currentCheckpointID)
 
     // This branch might be executed in moment when me change the checkpoint. So, to avoid interrupts - check if reference is ok and if no - repeat function execution after 100 ms
     if(!currentCheckpointTempObject){
@@ -696,7 +712,7 @@ export let REASSIGNMENTS_MONITORING = async() => {
 
     //In checkpoint we should already have reassignment chains
 
-    let reassignmentChainsInCheckpoint = tempObject.CHECKPOINT.reassignmentChains // primePoolPubKey => [reservePool0,reservePool1,...,reservePool2]
+    let reassignmentChainsInCheckpoint = currentCheckpointTempObject.CHECKPOINT.reassignmentChains // primePoolPubKey => [reservePool0,reservePool1,...,reservePool2]
 
     let responseForTempReassignment = await fetch(`${global.configs.node}/get_data_for_temp_reassign`).then(r=>r.json()).catch(_=>false)
 
@@ -755,22 +771,59 @@ export let REASSIGNMENTS_MONITORING = async() => {
 
         for(let [primePoolPubKey,reassignMetadata] of Object.entries(responseForTempReassignment)){
 
-            if(typeof primePoolPubKey === 'string' && typeof reassignMetadata === 'object' && typeof reassignMetadata === 'number'){
+            if(typeof primePoolPubKey === 'string' && typeof reassignMetadata === 'object' && typeof reassignMetadata.currentReservePoolIndex === 'number'){
 
-                let localPointer = tempReassignmentOnVerificationThread[quorumThreadCheckpointFullID][primePoolPubKey].currentAuthority
+                let localHandler = currentCheckpointTempObject.POOLS_METADATA.get(primePoolPubKey) // BLS pubkey of pool => {index,hash,isReserve,currentAuthority(?),aggregatedFinalizationProof,url}
 
-                let firstBlockIndexInNewCheckpoint = poolsMetadataFromVtCheckpoint[firstBlockByCurrentAuthority.creator].index+1
+                if(localHandler.currentAuthority < reassignMetadata.currentReservePoolIndex){
+
+                    let skippedPool = localHandler.currentAuthority === -1 ? primePoolPubKey : reassignmentChainsInCheckpoint[primePoolPubKey][localHandler.currentAuthority]
+
+                    currentCheckpointTempObject.CACHE.set('SKIP:'+skippedPool) // this is the mark that we should stop to grab blocks by this pool and stop asking for commitments & finalization proofs
+
+                    // If skipped pool is not in current quorum - we can close connection
+
+                    if(!currentCheckpointTempObject.CHECKPOINT.quorum.includes(skippedPool)){
+
+                        let connection = currentCheckpointTempObject.WSS_CONNECTIONS.get(skippedPool)
+                        
+                        connection.close()
+
+                    }
+
+                    // Now, connect to the new pool if we still don't have WSS connection and start to grab blocks & commitments & finalization proofs
+
+                    let newPoolPubKey = reassignmentChainsInCheckpoint[primePoolPubKey][reassignMetadata.currentReservePoolIndex]
+
+
+                    if(currentCheckpointTempObject.WSS_CONNECTIONS.has(newPoolPubKey)){
+
+                        // Just start the functions
+
+                        START_BLOCK_GRABBING_PROCESS(newPoolPubKey)
+
+                        START_PROOFS_GRABBING(newPoolPubKey)
+
+
+                    }else{
+
+                        // Open connection and only after that - start to grab blocks & proofs
+
+                        GET_WSS_ADDRESS_AND_OPEN_CONNECTION(newPoolPubKey,true)
+
+                    }
+
+                }
 
             }
 
         }
 
-
     }
 
 
     // Repeat the same procedure
-    setTimeout(()=>REASSIGNMENTS_MONITORING(poolPubKey).catch(_=>false),7000)
+    setTimeout(()=>REASSIGNMENTS_MONITORING().catch(_=>false),15000)
 
 }
 
@@ -778,7 +831,7 @@ export let REASSIGNMENTS_MONITORING = async() => {
 
 export let START_BLOCK_GRABBING_PROCESS=async poolPubKey=>{
 
-    let tempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
 
     if(!tempObject){
 

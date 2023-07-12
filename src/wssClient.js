@@ -21,7 +21,7 @@ import {SocksProxyAgent} from 'socks-proxy-agent'
  * @param {*} primePoolsArray 
  * @param {Array.<string>} quorum 
  */
-export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
+export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL,noChecks)=>{
 
     let WebSocketClient = WS.client
     
@@ -47,7 +47,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         // Add connection to temporary cache
     
-        let currentTempObject = TEMP_CACHE_PER_CHECKPOINT.get(CURRENT_CHECKPOINT_ID)
+        let currentTempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
         
         // Handler on incoming messages
         connection.on('message',message=>{
@@ -86,7 +86,9 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL)=>{
 
         //____________________________ START ALL THE PROCEDURES ____________________________
 
-        if(!currentTempObject.POOLS_METADATA.get(poolID).isReserve && (global.configs.prefferedSubchains === '*' || global.configs.prefferedSubchains.includes(poolID))){
+        let itsPrimePoolAndMarkedAsPreffered = !currentTempObject.POOLS_METADATA.get(poolID).isReserve && (global.configs.prefferedSubchains === '*' || global.configs.prefferedSubchains.includes(poolID))
+
+        if(itsPrimePoolAndMarkedAsPreffered || noChecks){
 
             START_PROOFS_GRABBING(poolID)
 
