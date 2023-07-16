@@ -207,7 +207,7 @@ export const CHECKPOINT_TRACKER = async() => {
             
             openConnectionWith.forEach(poolPubKey=>
 
-                GET_WSS_ADDRESS_AND_OPEN_CONNECTION(poolPubKey,onlyPrimePools)
+                GET_WSS_ADDRESS_AND_OPEN_CONNECTION(poolPubKey)
 
             )
 

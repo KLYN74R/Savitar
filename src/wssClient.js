@@ -2,7 +2,7 @@ import {
     
     START_BLOCK_GRABBING_PROCESS,START_PROOFS_GRABBING,
 
-    WSS_HANDLERS,LOG,PATH_RESOLVE
+    WSS_HANDLERS,LOG,PATH_RESOLVE, USE_TEMPORARY_DB
 
 } from './functionality.js'
 
@@ -12,6 +12,34 @@ import fs from 'fs'
 
 
 import {SocksProxyAgent} from 'socks-proxy-agent'
+
+global.VERIFY_INDEX = 0
+
+let START_TO_VERIFY=async()=>{
+
+    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
+
+    if(!tempObject){
+
+        setTimeout(()=>START_TO_VERIFY().catch(_=>false),100)
+
+        return
+
+    }
+
+
+    let block = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'BLOCK:7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta:'+global.VERIFY_INDEX).catch(_=>{})
+
+    if(block){
+
+        console.log('DEBUG:Verified ',global.VERIFY_INDEX++)
+
+
+    }else console.log('DEBUG:Wait for ',global.VERIFY_INDEX)
+
+    setImmediate(START_TO_VERIFY)
+
+}
 
 
 /**
@@ -94,6 +122,9 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL,noCh
 
             START_BLOCK_GRABBING_PROCESS(poolID)
 
+            //TODO: Delete
+            START_TO_VERIFY()
+
         }
         
     })
@@ -105,7 +136,7 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL,noCh
 
         // Repeat to connect after a while
 
-        setTimeout(()=>OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES(poolID,wssURL),3000)
+        // setTimeout(()=>OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES(poolID,wssURL),3000)
 
     })
 

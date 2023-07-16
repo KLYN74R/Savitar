@@ -1,8 +1,7 @@
+import { GET_WSS_ADDRESS_AND_OPEN_CONNECTION } from './background.js'
 import {hash} from 'blake3-wasm'
 import fetch from 'node-fetch'
 import bls from './bls.js'
-import { OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES } from './wssClient.js'
-import { GET_WSS_ADDRESS_AND_OPEN_CONNECTION } from './background.js'
 
 
 
@@ -57,7 +56,7 @@ const COLORS = {
 }
 
 
-const BLAKE3 = v => hash(v,{length:64}).toString('hex')
+const BLAKE3 = v => hash(v).toString('hex')
 
 
 const GET_BLOCK_HASH = block => BLAKE3( block.creator + block.time + JSON.stringify(block.transactions) + global.configs.symbioteID + block.checkpoint + block.index + block.prevHash)
@@ -444,7 +443,7 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
         // To keep progress
         await USE_TEMPORARY_DB('put',DATABASE,poolPubKey,poolMetadata).catch(_=>false)
 
-        setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),0)
+        setImmediate(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false))
 
         return
 
@@ -603,7 +602,7 @@ let RUN_COMMITMENTS_GRABBING = async (currentCheckpointID,currentCheckpointTempO
 
 
 
-    }else setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),7000)
+    }else setTimeout(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false),2000)
 
 }
 

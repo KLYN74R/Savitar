@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "bin": {
-    "savitar": "index.js"
+    "savitar": "./src/apiServer.js"
   },
   "repository": {
     "type": "git",
