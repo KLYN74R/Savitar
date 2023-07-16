@@ -1,45 +1,12 @@
-import {
-    
-    START_BLOCK_GRABBING_PROCESS,START_PROOFS_GRABBING,
-
-    WSS_HANDLERS,LOG,PATH_RESOLVE, USE_TEMPORARY_DB
-
-} from './functionality.js'
-
-
-import WS from 'websocket'
-import fs from 'fs'
-
+import {START_BLOCK_GRABBING_PROCESS,START_PROOFS_GRABBING,WSS_HANDLERS,LOG,PATH_RESOLVE} from './functionality.js'
 
 import {SocksProxyAgent} from 'socks-proxy-agent'
 
-global.VERIFY_INDEX = 0
+import WS from 'websocket'
 
-let START_TO_VERIFY=async()=>{
-
-    let tempObject = global.TEMP_CACHE_PER_CHECKPOINT.get(global.CURRENT_CHECKPOINT_FULL_ID)
-
-    if(!tempObject){
-
-        setTimeout(()=>START_TO_VERIFY().catch(_=>false),100)
-
-        return
-
-    }
+import fs from 'fs'
 
 
-    let block = await USE_TEMPORARY_DB('get',tempObject.DATABASE,'BLOCK:7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta:'+global.VERIFY_INDEX).catch(_=>{})
-
-    if(block){
-
-        console.log('DEBUG:Verified ',global.VERIFY_INDEX++)
-
-
-    }else console.log('DEBUG:Wait for ',global.VERIFY_INDEX)
-
-    setImmediate(START_TO_VERIFY)
-
-}
 
 
 /**
@@ -121,9 +88,6 @@ export let OPEN_WSS_CONNECTION_AND_START_ALL_PROCEDURES=async(poolID,wssURL,noCh
             START_PROOFS_GRABBING(poolID)
 
             START_BLOCK_GRABBING_PROCESS(poolID)
-
-            //TODO: Delete
-            START_TO_VERIFY()
 
         }
         

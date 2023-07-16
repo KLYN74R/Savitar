@@ -445,6 +445,14 @@ let RUN_FINALIZATION_PROOFS_GRABBING = async (_currentCheckpointID,currentCheckp
 
         setImmediate(()=>START_PROOFS_GRABBING(poolPubKey).catch(_=>false))
 
+
+        currentCheckpointTempObject.WSS_CONNECTIONS.get('7GPupbq1vtKUgaqVeHiDbEJcxS7sSjwPnbht4eRaDBAEJv8ZKHNCSu2Am3CuWnHjta').sendUTF(JSON.stringify({
+
+            route:'accept_afp',
+            payload:aggregatedFinalizationProof
+
+        }))
+
         return
 
     }
